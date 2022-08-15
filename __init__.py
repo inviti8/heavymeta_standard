@@ -76,9 +76,72 @@ PROPS = [
     ('minter_version', bpy.props.IntProperty(name='Version', default=1)),
 ]
 
-class MetaTrait(bpy.types.PropertyGroup):
-    trait_type = bpy.props.StringProperty()
+# ------------------------------------------------------------------------
+#    Heavymeta Traits
+# ------------------------------------------------------------------------
+#mesh trait getters
+def mesh_trait(self):
+    return self['mesh']
+#
+def mesh_list_label(self):
+    return self['Mesh-Traits']
+
+
+#morph trait getters
+def morph_trait(self):
+    return self['morph']
+#
+def morph_list_label(self):
+    return self['Morph-Traits']
+
+
+#anim trait getters
+def anim_trait(self):
+    return self['anim']
+#
+def anim_list_label(self):
+    return self['Anim-Traits']
+
+
+class ObjectPointer(PropertyGroup):
+    """Pointer Object, for collections inside of collections."""
+    obj: bpy.props.PointerProperty(type = bpy.types.Object)
+
+
+#mesh traits
+class MeshTrait(bpy.types.PropertyGroup):
+    """Standard mesh meta-data trait object"""
+    trait_type = bpy.props.StringProperty(get=mesh_trait)
     value = bpy.props.StringProperty()
+#
+class MeshTraitList(bpy.types.PropertyGroup):
+    """List of mesh meta-data trait objects"""
+    name: bpy.props.StringProperty(get=mesh_list_label)
+    object_group: bpy.props.CollectionProperty(type = ObjectPointer)
+
+
+# #morph traits
+class MorphTrait(bpy.types.PropertyGroup):
+    """Standard morph meta-data trait object"""
+    trait_type = bpy.props.StringProperty(get=morph_trait)
+    value = bpy.props.StringProperty()
+#
+class MorphTraitList(bpy.types.PropertyGroup):
+    """List of morph meta-data trait objects"""
+    name: bpy.props.StringProperty(get=morph_list_label)
+    object_group: bpy.props.CollectionProperty(type = ObjectPointer)
+
+
+#animation traits
+class AnimTrait(bpy.types.PropertyGroup):
+    """Standard animation meta-data trait object"""
+    trait_type = bpy.props.StringProperty(get=anim_trait)
+    value = bpy.props.StringProperty()
+#
+class AnimTraitList(bpy.types.PropertyGroup):
+    """List of animation meta-data trait objects"""
+    name: bpy.props.StringProperty(get=anim_list_label)
+    object_group: bpy.props.CollectionProperty(type = ObjectPointer)
 
 # ------------------------------------------------------------------------
 #    Heavymeta Operators
@@ -89,6 +152,10 @@ class OpAddTrait(bpy.types.Operator):
     bl_idname = "collection.add_trait_operator"
     bl_label = "Add Trait Operator"
 
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
     def execute(self, context):
         print (context.collection)
         return {'FINISHED'}
@@ -98,6 +165,10 @@ class OpRemoveTrait(bpy.types.Operator):
     """Print object name in Console"""
     bl_idname = "collection.remove_trait_operator"
     bl_label = "Remove Trait Operator"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
 
     def execute(self, context):
         print (context.collection)
@@ -139,25 +210,34 @@ class COLLECTION_PT_collection_custom_props(CollectionButtonsPanel, PropertyPane
     _context_path = "collection"
     _property_type = Collection
 
+blender_classes = [
+    ObjectPointer,
+    MeshTrait,
+    MeshTraitList,
+    OpAddTrait,
+    OpRemoveTrait,
+    HeavymetaStandardDataPanel,
+    COLLECTION_PT_collection_custom_props
+]
+
 def register():
     for (prop_name, prop_value) in PROPS:
         setattr(bpy.types.Collection, prop_name, prop_value)
 
-    bpy.utils.register_class(OpAddTrait)
-    bpy.utils.register_class(OpRemoveTrait)
-    bpy.utils.register_class(COLLECTION_PT_collection_custom_props)
-    bpy.utils.register_class(HeavymetaStandardDataPanel)
+    for blender_class in blender_classes:
+        bpy.utils.register_class(blender_class)
+
+    bpy.types.Collection.hvym_mesh_list = bpy.props.CollectionProperty(type = MeshTraitList)
 
 
 def unregister():
     for (prop_name, _) in PROPS:
         delattr(bpy.types.Collection, prop_name)
 
-    bpy.utils.unregister_class(OpAddTrait)
-    bpy.utils.unregister_class(OpRemoveTrait)
-    bpy.utils.unregister_class(COLLECTION_PT_collection_custom_props)
-    bpy.utils.unregister_class(HeavymetaStandardDataPanel)
+    for blender_class in blender_classes:
+        bpy.utils.unregister_class(blender_class)
 
+    del bpy.types.Collection.hvym_mesh_list
 
 if __name__ == "__main__":
     register()
