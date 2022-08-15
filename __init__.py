@@ -143,6 +143,132 @@ class AnimTraitList(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(get=anim_list_label)
     object_group: bpy.props.CollectionProperty(type = ObjectPointer)
 
+class ListItem(bpy.types.PropertyGroup):
+    """Group of properties representing an item in the list."""
+
+    name: bpy.props.StringProperty(
+           name="Name",
+           description="A name for this item",
+           default="Untitled")
+
+    random_prop: bpy.props.StringProperty(
+           name="Any other property you want",
+           description="",
+           default="")
+
+
+class MY_UL_List(UIList):
+    """Demo UIList."""
+
+    def draw_item(self, context, layout, data, item, icon, active_data,
+                  active_propname, index):
+
+        # We could write some code to decide which icon to use here...
+        custom_icon = 'OBJECT_DATAMODE'
+
+        # Make sure your code supports all 3 layout types
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name, icon = custom_icon)
+
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon = custom_icon)
+
+
+class LIST_OT_NewItem(Operator):
+    """Add a new item to the list."""
+
+    bl_idname = "my_list.new_item"
+    bl_label = "Add a new item"
+
+    def execute(self, context):
+        context.collection.my_list.add()
+
+        return{'FINISHED'}
+
+
+class LIST_OT_DeleteItem(bpy.types.Operator):
+    """Delete the selected item from the list."""
+
+    bl_idname = "my_list.delete_item"
+    bl_label = "Deletes an item"
+
+    @classmethod
+    def poll(cls, context):
+        return context.collection.my_list
+
+    def execute(self, context):
+        my_list = context.collection.my_list
+        index = context.collection.list_index
+
+        my_list.remove(index)
+        context.collection.list_index = min(max(0, index - 1), len(my_list) - 1)
+
+        return{'FINISHED'}
+
+class LIST_OT_MoveItem(bpy.types.Operator):
+    """Move an item in the list."""
+
+    bl_idname = "my_list.move_item"
+    bl_label = "Move an item in the list"
+
+    direction = bpy.props.EnumProperty(items=(('UP', 'Up', ""),
+                                              ('DOWN', 'Down', ""),))
+
+    @classmethod
+    def poll(cls, context):
+        return context.collection.my_list
+
+    def move_index(self):
+        """ Move index of an item render queue while clamping it. """
+
+        index = bpy.context.collection.list_index
+        list_length = len(bpy.context.collection.my_list) - 1  # (index starts at 0)
+        new_index = index + (-1 if self.direction == 'UP' else 1)
+
+        bpy.context.collection.list_index = max(0, min(new_index, list_length))
+
+    def execute(self, context):
+        my_list = context.collection.my_list
+        index = context.collection.list_index
+
+        neighbor = index + (-1 if self.direction == 'UP' else 1)
+        my_list.move(neighbor, index)
+        self.move_index(self)
+
+        return{'FINISHED'}
+
+class LIST_OT_DirectionUp(bpy.types.Operator):
+    """Set direction of LIST_OT_MoveItem.deirection to UP."""
+    bl_idname = "my_list.set_direction_up"
+    bl_label = "Set the move direction to up"
+
+    @classmethod
+    def poll(cls, context):
+        return context.collection.my_list
+
+    def execute(self, context):
+        
+        LIST_OT_MoveItem.direction = "UP"
+        LIST_OT_MoveItem.execute(LIST_OT_MoveItem, context)
+        return{'FINISHED'}
+
+
+class LIST_OT_DirectionDown(bpy.types.Operator):
+    """Set direction of LIST_OT_MoveItem.deirection to Down."""
+    bl_idname = "my_list.set_direction_down"
+    bl_label = "Set the move direction to down"
+
+    @classmethod
+    def poll(cls, context):
+        return context.collection.my_list
+
+    def execute(self, context):
+        
+        LIST_OT_MoveItem.direction = "DOWN"
+        LIST_OT_MoveItem.execute(LIST_OT_MoveItem, context)
+        return{'FINISHED'}
+
 # ------------------------------------------------------------------------
 #    Heavymeta Operators
 # ------------------------------------------------------------------------
@@ -158,6 +284,8 @@ class OpAddTrait(bpy.types.Operator):
 
     def execute(self, context):
         print (context.collection)
+        my_item = bpy.context.collection.hvym_mesh_list.add()
+        my_item.value = "100"
         return {'FINISHED'}
 
 
@@ -184,6 +312,7 @@ class HeavymetaStandardDataPanel(bpy.types.Panel):
 
     def draw(self, context):
         col = self.layout.column()
+        ctx = context.collection
         for (prop_name, _) in PROPS:
             row = col.row()
             if prop_name == 'minter_version':
@@ -195,6 +324,23 @@ class HeavymetaStandardDataPanel(bpy.types.Panel):
         row.label(text="Traits:")
         row.operator(OpAddTrait.bl_idname, text="Add", icon="ADD")
         row.operator(OpRemoveTrait.bl_idname, text="Remove", icon="REMOVE")
+        row = col.row()
+        row.template_list("MY_UL_List", "The_List", ctx,
+                          "my_list", ctx, "list_index")
+
+        row = col.row()
+        row.operator('my_list.new_item', text='NEW')
+        row.operator('my_list.delete_item', text='REMOVE')
+        row.operator('my_list.set_direction_up', text='UP')
+        row.operator('my_list.set_direction_down', text='DOWN')
+
+        if ctx.list_index >= 0 and ctx.my_list:
+            item = ctx.my_list[ctx.list_index]
+
+            row = col.row()
+            row.prop(item, "name")
+            row.prop(item, "random_prop")
+
 
 
 # -------------------------------------------------------------------
@@ -210,12 +356,22 @@ class COLLECTION_PT_collection_custom_props(CollectionButtonsPanel, PropertyPane
     _context_path = "collection"
     _property_type = Collection
 
+# -------------------------------------------------------------------
+#   Class Registration
+# -------------------------------------------------------------------
 blender_classes = [
     ObjectPointer,
     MeshTrait,
     MeshTraitList,
     OpAddTrait,
     OpRemoveTrait,
+    ListItem,
+    MY_UL_List,
+    LIST_OT_NewItem,
+    LIST_OT_DeleteItem,
+    LIST_OT_MoveItem,
+    LIST_OT_DirectionUp,
+    LIST_OT_DirectionDown,
     HeavymetaStandardDataPanel,
     COLLECTION_PT_collection_custom_props
 ]
@@ -227,17 +383,22 @@ def register():
     for blender_class in blender_classes:
         bpy.utils.register_class(blender_class)
 
-    bpy.types.Collection.hvym_mesh_list = bpy.props.CollectionProperty(type = MeshTraitList)
+    bpy.types.Collection.hvym_mesh_list = bpy.props.CollectionProperty(type = MeshTrait)
+    bpy.types.Collection.my_list = bpy.props.CollectionProperty(type = ListItem)
+    bpy.types.Collection.list_index = bpy.props.IntProperty(name = "Index for my_list",
+                                             default = 0)
 
 
 def unregister():
+    del bpy.types.Collection.my_list
+    del bpy.types.Collection.list_index
+    del bpy.types.Collection.hvym_mesh_list
+
     for (prop_name, _) in PROPS:
         delattr(bpy.types.Collection, prop_name)
 
     for blender_class in blender_classes:
         bpy.utils.unregister_class(blender_class)
-
-    del bpy.types.Collection.hvym_mesh_list
 
 if __name__ == "__main__":
     register()
