@@ -77,7 +77,7 @@ PROPS = [
 ]
 
 
-class ListItem(bpy.types.PropertyGroup):
+class HVYM_ListItem(bpy.types.PropertyGroup):
     """Group of properties representing an item in the list."""
 
     trait_type: bpy.props.StringProperty(
@@ -96,7 +96,7 @@ class ListItem(bpy.types.PropertyGroup):
            default="")
 
 
-class MetaDataList(UIList):
+class HVYM_DataList(UIList):
     """Heavymet data list."""
 
     def draw_item(self, context, layout, data, item, icon, active_data,
@@ -125,9 +125,7 @@ class MetaDataList(UIList):
 # ------------------------------------------------------------------------
 #    Heavymeta Operators
 # ------------------------------------------------------------------------
-
-
-class LIST_OT_NewItem(Operator):
+class HVYM_LIST_NewItem(Operator):
     """Add a new item to the list."""
 
     bl_idname = "hvym_meta_data.new_item"
@@ -139,7 +137,7 @@ class LIST_OT_NewItem(Operator):
         return{'FINISHED'}
 
 
-class LIST_OT_NewPropItem(Operator):
+class HVYM_LIST_NewPropItem(Operator):
     """Add a new nft property item to the list."""
 
     bl_idname = "hvym_meta_data.new_property_item"
@@ -151,7 +149,7 @@ class LIST_OT_NewPropItem(Operator):
 
         return{'FINISHED'}
 
-class LIST_OT_NewMeshItem(Operator):
+class HVYM_LIST_NewMeshItem(Operator):
     """Add a new mesh item to the list."""
 
     bl_idname = "hvym_meta_data.new_mesh_item"
@@ -163,7 +161,7 @@ class LIST_OT_NewMeshItem(Operator):
 
         return{'FINISHED'}
 
-class LIST_OT_NewMorphItem(Operator):
+class HVYM_LIST_NewMorphItem(Operator):
     """Add a new morph item to the list."""
 
     bl_idname = "hvym_meta_data.new_morph_item"
@@ -175,7 +173,7 @@ class LIST_OT_NewMorphItem(Operator):
 
         return{'FINISHED'}
 
-class LIST_OT_NewAnimItem(Operator):
+class HVYM_LIST_NewAnimItem(Operator):
     """Add a new animation item to the list."""
 
     bl_idname = "hvym_meta_data.new_anim_item"
@@ -188,7 +186,7 @@ class LIST_OT_NewAnimItem(Operator):
         return{'FINISHED'}
 
 
-class LIST_OT_DeleteItem(bpy.types.Operator):
+class HVYM_LIST_DeleteItem(bpy.types.Operator):
     """Delete the selected item from the list."""
 
     bl_idname = "hvym_meta_data.delete_item"
@@ -200,14 +198,14 @@ class LIST_OT_DeleteItem(bpy.types.Operator):
 
     def execute(self, context):
         hvym_meta_data = context.collection.hvym_meta_data
-        index = context.collection.list_index
+        index = context.collection.hvym_list_index
 
         hvym_meta_data.remove(index)
-        context.collection.list_index = min(max(0, index - 1), len(hvym_meta_data) - 1)
+        context.collection.hvym_list_index = min(max(0, index - 1), len(hvym_meta_data) - 1)
 
         return{'FINISHED'}
 
-class LIST_OT_MoveItem(bpy.types.Operator):
+class HVYM_LIST_MoveItem(bpy.types.Operator):
     """Move an item in the list."""
 
     bl_idname = "hvym_meta_data.move_item"
@@ -223,15 +221,15 @@ class LIST_OT_MoveItem(bpy.types.Operator):
     def move_index(self):
         """ Move index of an item render queue while clamping it. """
 
-        index = bpy.context.collection.list_index
+        index = bpy.context.collection.hvym_list_index
         list_length = len(bpy.context.collection.hvym_meta_data) - 1  # (index starts at 0)
         new_index = index + (-1 if self.direction == 'UP' else 1)
 
-        bpy.context.collection.list_index = max(0, min(new_index, list_length))
+        bpy.context.collection.hvym_list_index = max(0, min(new_index, list_length))
 
     def execute(self, context):
         hvym_meta_data = context.collection.hvym_meta_data
-        index = context.collection.list_index
+        index = context.collection.hvym_list_index
 
         neighbor = index + (-1 if self.direction == 'UP' else 1)
         hvym_meta_data.move(neighbor, index)
@@ -239,8 +237,8 @@ class LIST_OT_MoveItem(bpy.types.Operator):
 
         return{'FINISHED'}
 
-class LIST_OT_DirectionUp(bpy.types.Operator):
-    """Set direction of LIST_OT_MoveItem.deirection to UP."""
+class HVYM_LIST_DirectionUp(bpy.types.Operator):
+    """Set direction of HVYM_LIST_MoveItem.deirection to UP."""
     bl_idname = "hvym_meta_data.set_direction_up"
     bl_label = "Set the move direction to up"
 
@@ -250,13 +248,13 @@ class LIST_OT_DirectionUp(bpy.types.Operator):
 
     def execute(self, context):
         
-        LIST_OT_MoveItem.direction = "UP"
-        LIST_OT_MoveItem.execute(LIST_OT_MoveItem, context)
+        HVYM_LIST_MoveItem.direction = "UP"
+        HVYM_LIST_MoveItem.execute(HVYM_LIST_MoveItem, context)
         return{'FINISHED'}
 
 
-class LIST_OT_DirectionDown(bpy.types.Operator):
-    """Set direction of LIST_OT_MoveItem.deirection to Down."""
+class HVYM_LIST_DirectionDown(bpy.types.Operator):
+    """Set direction of HVYM_LIST_MoveItem.deirection to Down."""
     bl_idname = "hvym_meta_data.set_direction_down"
     bl_label = "Set the move direction to down"
 
@@ -266,12 +264,12 @@ class LIST_OT_DirectionDown(bpy.types.Operator):
 
     def execute(self, context):
         
-        LIST_OT_MoveItem.direction = "DOWN"
-        LIST_OT_MoveItem.execute(LIST_OT_MoveItem, context)
+        HVYM_LIST_MoveItem.direction = "DOWN"
+        HVYM_LIST_MoveItem.execute(HVYM_LIST_MoveItem, context)
         return{'FINISHED'}
 
 
-class HeavymetaStandardDataPanel(bpy.types.Panel):
+class HVYM_DataPanel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "Heavymeta Standard"
     bl_idname = "COLLECTION_PT_heavymeta_standard_data"
@@ -292,8 +290,8 @@ class HeavymetaStandardDataPanel(bpy.types.Panel):
         row.separator()
         row.label(text="Traits:")
         row = col.row()
-        row.template_list("MetaDataList", "The_List", ctx,
-                          "hvym_meta_data", ctx, "list_index")
+        row.template_list("HVYM_DataList", "The_List", ctx,
+                          "hvym_meta_data", ctx, "hvym_list_index")
 
         row = col.row()
         row.operator('hvym_meta_data.new_property_item', text='+', icon='MEMORY')
@@ -304,45 +302,30 @@ class HeavymetaStandardDataPanel(bpy.types.Panel):
         row.operator('hvym_meta_data.set_direction_up', text='', icon='SORT_DESC')
         row.operator('hvym_meta_data.set_direction_down', text='', icon='SORT_ASC')
 
-        if ctx.list_index >= 0 and ctx.hvym_meta_data:
-            item = ctx.hvym_meta_data[ctx.list_index]
+        if ctx.hvym_list_index >= 0 and ctx.hvym_meta_data:
+            item = ctx.hvym_meta_data[ctx.hvym_list_index]
 
             row = col.row()
             row.prop(item, "type")
             row.prop(item, "note")
 
 
-
-# -------------------------------------------------------------------
-#   Custom Properties Panel
-# -------------------------------------------------------------------
-class CollectionButtonsPanel:
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "collection"
-
-class COLLECTION_PT_collection_custom_props(CollectionButtonsPanel, PropertyPanel, Panel): 
-    
-    _context_path = "collection"
-    _property_type = Collection
-
 # -------------------------------------------------------------------
 #   Class Registration
 # -------------------------------------------------------------------
 blender_classes = [
-    ListItem,
-    MetaDataList,
-    LIST_OT_NewItem,
-    LIST_OT_NewPropItem,
-    LIST_OT_NewMeshItem,
-    LIST_OT_NewMorphItem,
-    LIST_OT_NewAnimItem,
-    LIST_OT_DeleteItem,
-    LIST_OT_MoveItem,
-    LIST_OT_DirectionUp,
-    LIST_OT_DirectionDown,
-    HeavymetaStandardDataPanel,
-    COLLECTION_PT_collection_custom_props
+    HVYM_ListItem,
+    HVYM_DataList,
+    HVYM_LIST_NewItem,
+    HVYM_LIST_NewPropItem,
+    HVYM_LIST_NewMeshItem,
+    HVYM_LIST_NewMorphItem,
+    HVYM_LIST_NewAnimItem,
+    HVYM_LIST_DeleteItem,
+    HVYM_LIST_MoveItem,
+    HVYM_LIST_DirectionUp,
+    HVYM_LIST_DirectionDown,
+    HVYM_DataPanel
 ]
 
 def register():
@@ -352,14 +335,14 @@ def register():
     for blender_class in blender_classes:
         bpy.utils.register_class(blender_class)
 
-    bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = ListItem)
-    bpy.types.Collection.list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data",
+    bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_ListItem)
+    bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data",
                                              default = 0)
 
 
 def unregister():
     del bpy.types.Collection.hvym_meta_data
-    del bpy.types.Collection.list_index
+    del bpy.types.Collection.hvym_list_index
 
     for (prop_name, _) in PROPS:
         delattr(bpy.types.Collection, prop_name)
