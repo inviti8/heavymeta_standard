@@ -96,7 +96,7 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
            default="")
 
 
-class HVYM_DataList(UIList):
+class HVYM_DataList(bpy.types.UIList):
     """Heavymet data list."""
 
     def draw_item(self, context, layout, data, item, icon, active_data,
@@ -125,7 +125,7 @@ class HVYM_DataList(UIList):
 # ------------------------------------------------------------------------
 #    Heavymeta Operators
 # ------------------------------------------------------------------------
-class HVYM_LIST_NewItem(Operator):
+class HVYM_LIST_NewItem(bpy.types.Operator):
     """Add a new item to the list."""
 
     bl_idname = "hvym_meta_data.new_item"
@@ -137,7 +137,7 @@ class HVYM_LIST_NewItem(Operator):
         return{'FINISHED'}
 
 
-class HVYM_LIST_NewPropItem(Operator):
+class HVYM_LIST_NewPropItem(bpy.types.Operator):
     """Add a new nft property item to the list."""
 
     bl_idname = "hvym_meta_data.new_property_item"
@@ -149,7 +149,7 @@ class HVYM_LIST_NewPropItem(Operator):
 
         return{'FINISHED'}
 
-class HVYM_LIST_NewMeshItem(Operator):
+class HVYM_LIST_NewMeshItem(bpy.types.Operator):
     """Add a new mesh item to the list."""
 
     bl_idname = "hvym_meta_data.new_mesh_item"
@@ -161,7 +161,7 @@ class HVYM_LIST_NewMeshItem(Operator):
 
         return{'FINISHED'}
 
-class HVYM_LIST_NewMorphItem(Operator):
+class HVYM_LIST_NewMorphItem(bpy.types.Operator):
     """Add a new morph item to the list."""
 
     bl_idname = "hvym_meta_data.new_morph_item"
@@ -173,7 +173,7 @@ class HVYM_LIST_NewMorphItem(Operator):
 
         return{'FINISHED'}
 
-class HVYM_LIST_NewAnimItem(Operator):
+class HVYM_LIST_NewAnimItem(bpy.types.Operator):
     """Add a new animation item to the list."""
 
     bl_idname = "hvym_meta_data.new_anim_item"
@@ -269,6 +269,38 @@ class HVYM_LIST_DirectionDown(bpy.types.Operator):
         return{'FINISHED'}
 
 
+class HVYM_DebugMinter(bpy.types.Operator):
+    bl_idname = "hvym_debug.minter"
+    bl_label = "Launch Minter Debug UI"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Debug Minter")
+        for data in context.collection.hvym_meta_data:
+            print(data.type)
+        return {'FINISHED'}
+
+
+class HVYM_DebugModel(bpy.types.Operator):
+    bl_idname = "hvym_debug.model"
+    bl_label = "Launch Model Debug UI"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Debug Model")
+        return {'FINISHED'}
+
+
+class HVYM_DeployMinter(bpy.types.Operator):
+    bl_idname = "hvym_deploy.minter"
+    bl_label = "Launch Deploy Minter UI"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Deploy Minter")
+        return {'FINISHED'}
+
+
 class HVYM_DataPanel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "Heavymeta Standard"
@@ -286,14 +318,15 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row = row.row()
                 row.enabled = context.collection.add_version
             row.prop(context.collection, prop_name)
-        row = col.row()
+        box = col.box()
+        row = box.row()
         row.separator()
-        row.label(text="Traits:")
-        row = col.row()
+        row.label(text="NFT Data:")
+        row = box.row()
         row.template_list("HVYM_DataList", "The_List", ctx,
                           "hvym_meta_data", ctx, "hvym_list_index")
 
-        row = col.row()
+        row = box.row()
         row.operator('hvym_meta_data.new_property_item', text='+', icon='MEMORY')
         row.operator('hvym_meta_data.new_mesh_item', text='+', icon='MESH_ICOSPHERE')
         row.operator('hvym_meta_data.new_morph_item', text='+', icon='SHAPEKEY_DATA')
@@ -305,9 +338,23 @@ class HVYM_DataPanel(bpy.types.Panel):
         if ctx.hvym_list_index >= 0 and ctx.hvym_meta_data:
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
 
-            row = col.row()
+            row = box.row()
             row.prop(item, "type")
             row.prop(item, "note")
+        row = col.row()
+        row.separator()
+        box = col.box()
+        row = box.row()
+        row.label(text="Debugging:")
+        row = box.row()
+        row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
+        row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
+        box = col.box()
+        row = box.row()
+        row.separator()
+        row.label(text="Deploy:")
+        row = box.row()
+        row.operator('hvym_deploy.minter', text="Deploy", icon="URL")
 
 
 # -------------------------------------------------------------------
@@ -325,6 +372,9 @@ blender_classes = [
     HVYM_LIST_MoveItem,
     HVYM_LIST_DirectionUp,
     HVYM_LIST_DirectionDown,
+    HVYM_DebugMinter,
+    HVYM_DebugModel,
+    HVYM_DeployMinter,
     HVYM_DataPanel
 ]
 
