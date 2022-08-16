@@ -59,8 +59,8 @@ from bpy.types import (Operator,
 #   Heavymeta Standards Panel
 # -------------------------------------------------------------------
 PROPS = [
-    ('minter_type', bpy.props.EnumProperty(
-        name='Minter-Type',
+    ('nft_type', bpy.props.EnumProperty(
+        name='NFT-Type',
         items=(
             ('HVYC', "Character", ""),
             ('HVYI', "Immortal", ""),
@@ -69,6 +69,11 @@ PROPS = [
             ('HVYO', "Object", ""),
             ('HVYG', "Generic", ""),
             ('HVYAU', "Auricle", "")))),
+    ('minter_type', bpy.props.EnumProperty(
+        name='Minter-Type',
+        items=(
+            ('payable', "Publicly Mintable", ""),
+            ('onlyOnwner', "Privately Mintable", "")))),
     ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='')),
     ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='')),
     ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='')),
@@ -103,7 +108,7 @@ class HVYM_DataList(bpy.types.UIList):
                   active_propname, index):
 
         # We could write some code to decide which icon to use here...
-        custom_icon = 'MEMORY'
+        custom_icon = 'FUND'
 
         if item.trait_type == 'mesh':
             custom_icon = 'MESH_ICOSPHERE'
@@ -125,17 +130,6 @@ class HVYM_DataList(bpy.types.UIList):
 # ------------------------------------------------------------------------
 #    Heavymeta Operators
 # ------------------------------------------------------------------------
-class HVYM_LIST_NewItem(bpy.types.Operator):
-    """Add a new item to the list."""
-
-    bl_idname = "hvym_meta_data.new_item"
-    bl_label = "Add a new item"
-
-    def execute(self, context):
-        context.collection.hvym_meta_data.add()
-
-        return{'FINISHED'}
-
 
 class HVYM_LIST_NewPropItem(bpy.types.Operator):
     """Add a new nft property item to the list."""
@@ -327,7 +321,7 @@ class HVYM_DataPanel(bpy.types.Panel):
                           "hvym_meta_data", ctx, "hvym_list_index")
 
         row = box.row()
-        row.operator('hvym_meta_data.new_property_item', text='+', icon='MEMORY')
+        row.operator('hvym_meta_data.new_property_item', text='+', icon='FUND')
         row.operator('hvym_meta_data.new_mesh_item', text='+', icon='MESH_ICOSPHERE')
         row.operator('hvym_meta_data.new_morph_item', text='+', icon='SHAPEKEY_DATA')
         row.operator('hvym_meta_data.new_anim_item', text='+', icon='ACTION_TWEAK')
@@ -363,7 +357,6 @@ class HVYM_DataPanel(bpy.types.Panel):
 blender_classes = [
     HVYM_ListItem,
     HVYM_DataList,
-    HVYM_LIST_NewItem,
     HVYM_LIST_NewPropItem,
     HVYM_LIST_NewMeshItem,
     HVYM_LIST_NewMorphItem,
