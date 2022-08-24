@@ -55,6 +55,8 @@ from bpy.types import (Operator,
                        PropertyGroup,
                        UIList)
 
+
+
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
 # -------------------------------------------------------------------
@@ -352,6 +354,40 @@ class HVYM_DataPanel(bpy.types.Panel):
 
 
 # -------------------------------------------------------------------
+#   Heavymeta Standards Panel
+# -------------------------------------------------------------------
+# glTF extensions are named following a convention with known prefixes.
+# See: https://github.com/KhronosGroup/glTF/tree/master/extensions#about-gltf-extensions
+# also: https://github.com/KhronosGroup/glTF/blob/master/extensions/Prefixes.md
+glTF_extension_name = "HVY_nft_data"
+
+class HVYM_NFTDataExtension(bpy.types.PropertyGroup):
+    enabled: bpy.props.BoolProperty(name="enabled", default=True)
+
+bpy.types.GLTF_PT_export_user_extensions.bl_id = 'GLTF_PT_export_user_extensions'
+class HVYMGLTF_PT_export_user_extensions(bpy.types.Panel):
+    bl_id = 'HVYMGLTF_PT_export_user_extensions'
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Heavymeta Extensions"
+    bl_parent_id = "FILE_PT_operator"
+    #bl_parent_id = "GLTF_PT_export_user_extensions"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+        HVYMGLTF_PT_export_user_extensions.bl_parent_id = "hvym_ext_parent"
+        return operator.bl_idname == "EXPORT_SCENE_OT_gltf"
+
+    def draw_header(self, context):
+        props = context.scene.HVYM_NFTDataExtension
+        self.layout.prop(props, 'enabled', text="")
+
+    def draw(self, context):
+        self.layout.label(text="test")
+        pass
+# -------------------------------------------------------------------
 #   Class Registration
 # -------------------------------------------------------------------
 blender_classes = [
@@ -368,7 +404,9 @@ blender_classes = [
     HVYM_DebugMinter,
     HVYM_DebugModel,
     HVYM_DeployMinter,
-    HVYM_DataPanel
+    HVYM_DataPanel,
+    HVYM_NFTDataExtension,
+    HVYMGLTF_PT_export_user_extensions
 ]
 
 def register():
@@ -378,12 +416,14 @@ def register():
     for blender_class in blender_classes:
         bpy.utils.register_class(blender_class)
 
+    bpy.types.Scene.HVYM_NFTDataExtension = bpy.props.PointerProperty(type=HVYM_NFTDataExtension)
     bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_ListItem)
     bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data",
                                              default = 0)
 
 
 def unregister():
+    del bpy.types.Scene.HVYM_NFTDataExtension
     del bpy.types.Collection.hvym_meta_data
     del bpy.types.Collection.hvym_list_index
 
