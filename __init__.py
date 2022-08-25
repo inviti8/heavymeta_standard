@@ -42,6 +42,8 @@ bl_info = {
 
 import bpy
 import re
+from os import path
+from bpy.app.handlers import persistent
 from rna_prop_ui import PropertyPanel
 from bpy.types import (Panel,
                        BoolProperty,
@@ -56,6 +58,7 @@ from bpy.types import (Operator,
                        UIList)
 
 
+glTF_extension_name = "HVYM_nft_data"
 
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
@@ -356,13 +359,9 @@ class HVYM_DataPanel(bpy.types.Panel):
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
 # -------------------------------------------------------------------
-# glTF extensions are named following a convention with known prefixes.
-# See: https://github.com/KhronosGroup/glTF/tree/master/extensions#about-gltf-extensions
-# also: https://github.com/KhronosGroup/glTF/blob/master/extensions/Prefixes.md
-glTF_extension_name = "HVY_nft_data"
-
-class HVYM_NFTDataExtension(bpy.types.PropertyGroup):
+class HVYM_NFTDataExtensionProp(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(name="enabled", default=True)
+    nftData: []
 
 bpy.types.GLTF_PT_export_user_extensions.bl_id = 'GLTF_PT_export_user_extensions'
 class HVYMGLTF_PT_export_user_extensions(bpy.types.Panel):
@@ -405,9 +404,9 @@ blender_classes = [
     HVYM_DebugModel,
     HVYM_DeployMinter,
     HVYM_DataPanel,
-    HVYM_NFTDataExtension,
+    HVYM_NFTDataExtensionProp,
     HVYMGLTF_PT_export_user_extensions
-]
+    ]
 
 def register():
     for (prop_name, prop_value) in PROPS:
@@ -416,10 +415,9 @@ def register():
     for blender_class in blender_classes:
         bpy.utils.register_class(blender_class)
 
-    bpy.types.Scene.HVYM_NFTDataExtension = bpy.props.PointerProperty(type=HVYM_NFTDataExtension)
+    bpy.types.Scene.HVYM_NFTDataExtension = bpy.props.PointerProperty(type=HVYM_NFTDataExtensionProp)
     bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_ListItem)
-    bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data",
-                                             default = 0)
+    bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data", default = 0)
 
 
 def unregister():
@@ -435,3 +433,38 @@ def unregister():
 
 if __name__ == "__main__":
     register()
+
+
+
+
+# Use glTF-Blender-IO User extension hook mechanism
+class glTF2ExportUserExtension:
+    def __init__(self):
+        from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
+        self.Extension = Extension
+
+    # Currenlty blender_object in gather_mesh_hook is None
+    # So set up the extension in gather_node_hook instead.
+    # I assume a mesn is not shared among multiple nodes,
+    # Is the assumption always true?
+    def gather_node_hook(self, gltf2_object, blender_object, export_settings):
+        if len(bpy.data.collections) > 0:
+            return
+
+        # Compile data objects in sets by collection
+        mappings = []
+        for col in bpy.data.collections:
+            print(col.name)
+            mappings.append(col.name)
+
+        if bpy.types.Scene.HVYM_NFTDataExtension.enabled:
+            if gltf2_object.extensions is None:
+                gltf2_object.extensions = {}
+            gltf2_object.extensions[glTF_extension_name] = self.Extension(
+                name = glTF_extension_name,
+                extension = mappings,
+                required = False
+            )
+
+    def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
+        gltf2_object.extensions[glTF_extension_name] = {"variants": "test"}
