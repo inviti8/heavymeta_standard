@@ -40,6 +40,7 @@ bl_info = {
     'description': 'Assign Heavymeta Standard properties and meta-data at the Collection level.',
 }
 
+from configparser import InterpolationDepthError
 from contextvars import Context
 from time import time
 import bpy
@@ -87,15 +88,40 @@ def setCollectionId(collection):
 
 def updateNftData(self, context):
     #Update all the props on any change
+    #put them into a single structure
+    hvym_meta_data = context.collection.hvym_meta_data
     setCollectionId(context.collection)
+    intProps = []
+    meshProps = []
+    morphProps = []
+    animProps = []
+
+    for i in range(len(hvym_meta_data)):
+        if hvym_meta_data[i].trait_type == 'property':
+            intProps.append(hvym_meta_data[i].type)
+        elif hvym_meta_data[i].trait_type == 'mesh':
+            meshProps.append(hvym_meta_data[i].type)
+        elif hvym_meta_data[i].trait_type == 'morph':
+            morphProps.append(hvym_meta_data[i].type)
+        elif hvym_meta_data[i].trait_type == 'anim':
+            animProps.append(hvym_meta_data[i].type)
+        
+
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'nftType': context.collection.nft_type,
                                                                                 'minterType': context.collection.minter_type,
                                                                                 'minterName': context.collection.minter_name,
                                                                                 'minterImage': context.collection.minter_image,
-                                                                                'minterVersion': context.collection.minter_version
+                                                                                'minterVersion': context.collection.minter_version,
+                                                                                'intProps': intProps,
+                                                                                'meshProps': meshProps,
+                                                                                'morphProps': morphProps,
+                                                                                'animProps': animProps
                                                                                 }
     
     print(context.scene.hvym_collections_data.nftData[context.collection.hvym_id].to_dict())
+    
+
+    
 
 PROPS = [
     ('nft_type', bpy.props.EnumProperty(
@@ -116,10 +142,10 @@ PROPS = [
             ('onlyOnwner', "Privately Mintable", "")),
             update=updateNftData)),
     ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='', update=updateNftData)),
-    ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='')),
-    ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='')),
+    ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='', update=updateNftData)),
+    ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', update=updateNftData)),
     ('add_version', bpy.props.BoolProperty(name='Minter-Version', default=False)),
-    ('minter_version', bpy.props.IntProperty(name='Version', default=1)),
+    ('minter_version', bpy.props.IntProperty(name='Version', default=-1, update=updateNftData)),
 ]
 
 
@@ -394,19 +420,10 @@ class HVYM_DataPanel(bpy.types.Panel):
 
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
-# -------------------------------------------------------------------
-
-class HVYM_CollectionProps(bpy.types.PropertyGroup):
-    nftType: bpy.props.StringProperty()
-    minterType: bpy.props.StringProperty()
-    mintername: bpy.props.StringProperty()
-    minterImage: bpy.props.StringProperty()
-    minterVersion: bpy.props.StringProperty()
-
-    
+# ------------------------------------------------------------------- 
 class HVYM_NFTDataExtensionProps(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(name="enabled", default=True)
-    nftData: bpy.props.PointerProperty(type = HVYM_CollectionProps)
+    nftData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
 
 
 bpy.types.GLTF_PT_export_user_extensions.bl_id = 'GLTF_PT_export_user_extensions'
@@ -450,7 +467,6 @@ blender_classes = [
     HVYM_DebugModel,
     HVYM_DeployMinter,
     HVYM_DataPanel,
-    HVYM_CollectionProps,
     HVYM_NFTDataExtensionProps,
     HVYMGLTF_PT_export_user_extensions
     ]
