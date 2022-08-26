@@ -63,25 +63,13 @@ glTF_extension_name = "HVYM_nft_data"
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
 # -------------------------------------------------------------------
+def onSetNftType(self, context):
+    print(self.nft_type_enum)
+
+def onSetMinterType(self, context):
+    print(self.minter_type_enum)
+
 PROPS = [
-    ('nft_type', bpy.props.EnumProperty(
-        name='NFT-Type',
-        items=(
-            ('HVYC', "Character", ""),
-            ('HVYI', "Immortal", ""),
-            ('HVYA', "Animal", ""),
-            ('HVYW', "Weapon", ""),
-            ('HVYO', "Object", ""),
-            ('HVYG', "Generic", ""),
-            ('HVYAU', "Auricle", "")))),
-    ('minter_type', bpy.props.EnumProperty(
-        name='Minter-Type',
-        items=(
-            ('payable', "Publicly Mintable", ""),
-            ('onlyOnwner', "Privately Mintable", "")))),
-    ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='')),
-    ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='')),
-    ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='')),
     ('add_version', bpy.props.BoolProperty(name='Minter-Version', default=False)),
     ('minter_version', bpy.props.IntProperty(name='Version', default=1)),
 ]
@@ -311,6 +299,16 @@ class HVYM_DataPanel(bpy.types.Panel):
     def draw(self, context):
         col = self.layout.column()
         ctx = context.collection
+        row = col.row()
+        row.prop(ctx,'nft_type_enum')
+        row = col.row()
+        row.prop(ctx,'minter_type_enum')
+        row = col.row()
+        row.prop(ctx,'minter_name')
+        row = col.row()
+        row.prop(ctx,'minter_desc')
+        row = col.row()
+        row.prop(ctx,'minter_image')
         for (prop_name, _) in PROPS:
             row = col.row()
             if prop_name == 'minter_version':
@@ -361,6 +359,8 @@ class HVYM_DataPanel(bpy.types.Panel):
 # -------------------------------------------------------------------
 class HVYM_NFTDataExtensionProp(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(name="enabled", default=True)
+    nftType: bpy.props.StringProperty(name='nftType', default='HVYC')
+    minterType: bpy.props.StringProperty(name='minterType', default='payable')
     nftData: []
 
 bpy.types.GLTF_PT_export_user_extensions.bl_id = 'GLTF_PT_export_user_extensions'
@@ -415,12 +415,36 @@ def register():
     for blender_class in blender_classes:
         bpy.utils.register_class(blender_class)
 
+    bpy.types.Collection.nft_type_enum = bpy.props.EnumProperty(
+        name='NFT-Type',
+        items=(
+            ('HVYC', "Character", ""),
+            ('HVYI', "Immortal", ""),
+            ('HVYA', "Animal", ""),
+            ('HVYW', "Weapon", ""),
+            ('HVYO', "Object", ""),
+            ('HVYG', "Generic", ""),
+            ('HVYAU', "Auricle", "")),
+            update=onSetNftType)
+    bpy.types.Collection.minter_type_enum = bpy.props.EnumProperty(
+        name='Minter-Type',
+        items=(
+            ('payable', "Publicly Mintable", ""),
+            ('onlyOnwner', "Privately Mintable", "")))
+    bpy.types.Collection.minter_name = bpy.props.StringProperty(name='Minter-Name', default='')
+    bpy.types.Collection.minter_desc = bpy.props.StringProperty(name='Minter-Desc', default='')
+    bpy.types.Collection.minter_image = bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='')
     bpy.types.Scene.HVYM_NFTDataExtension = bpy.props.PointerProperty(type=HVYM_NFTDataExtensionProp)
     bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_ListItem)
     bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data", default = 0)
 
 
 def unregister():
+    del bpy.types.Collection.nft_type_enum
+    del bpy.types.Collection.minter_type_enum
+    del bpy.types.Collection.minter_name
+    del bpy.types.Collection.minter_desc
+    del bpy.types.Collection.minter_image
     del bpy.types.Scene.HVYM_NFTDataExtension
     del bpy.types.Collection.hvym_meta_data
     del bpy.types.Collection.hvym_list_index
@@ -443,10 +467,7 @@ class glTF2ExportUserExtension:
         from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
         self.Extension = Extension
 
-    # Currenlty blender_object in gather_mesh_hook is None
-    # So set up the extension in gather_node_hook instead.
-    # I assume a mesn is not shared among multiple nodes,
-    # Is the assumption always true?
+    # Gather export data
     def gather_node_hook(self, gltf2_object, blender_object, export_settings):
         if len(bpy.data.collections) > 0:
             return
@@ -467,4 +488,15 @@ class glTF2ExportUserExtension:
             )
 
     def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
-        gltf2_object.extensions[glTF_extension_name] = {"variants": "test"}
+
+        if bpy.context.scene.HVYM_NFTDataExtension.enabled:
+            # data = {}
+            # data['minter-type']
+            print('----------------------------------------------------')
+            print(PROPS[0][0][0])
+            print('----------------------------------------------------')
+            for col in bpy.data.collections:
+                for data in col.hvym_meta_data:
+                    print(data)
+
+            gltf2_object.extensions[glTF_extension_name] = {"variants": "test1"}
