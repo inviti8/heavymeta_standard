@@ -86,9 +86,11 @@ def setCollectionId(collection):
         collection.hvym_id = random_id()
 
 
-def updateNftData(self, context):
+def updateNftData(context):
     #Update all the props on any change
     #put them into a single structure
+
+    print("THIS IS GETTING CALLED!!!!!!")
     hvym_meta_data = context.collection.hvym_meta_data
     setCollectionId(context.collection)
     intProps = []
@@ -119,8 +121,10 @@ def updateNftData(self, context):
                                                                                 }
     
     print(context.scene.hvym_collections_data.nftData[context.collection.hvym_id].to_dict())
-    
 
+
+def onUpdate(self, context):
+    updateNftData(context)
     
 
 PROPS = [
@@ -134,18 +138,18 @@ PROPS = [
             ('HVYO', "Object", ""),
             ('HVYG', "Generic", ""),
             ('HVYAU', "Auricle", "")),
-            update=updateNftData)),
+            update=onUpdate)),
     ('minter_type', bpy.props.EnumProperty(
         name='Minter-Type',
         items=(
             ('payable', "Publicly Mintable", ""),
             ('onlyOnwner', "Privately Mintable", "")),
-            update=updateNftData)),
-    ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='', update=updateNftData)),
-    ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='', update=updateNftData)),
-    ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', update=updateNftData)),
+            update=onUpdate)),
+    ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='', update=onUpdate)),
+    ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='', update=onUpdate)),
+    ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', update=onUpdate)),
     ('add_version', bpy.props.BoolProperty(name='Minter-Version', default=False)),
-    ('minter_version', bpy.props.IntProperty(name='Version', default=-1, update=updateNftData)),
+    ('minter_version', bpy.props.IntProperty(name='Version', default=-1, update=onUpdate)),
 ]
 
 
@@ -155,20 +159,23 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
     trait_type: bpy.props.StringProperty(
            name="Type",
            description="meta-data trait type",
-           default="")
+           default="",
+           update=onUpdate)
 
     type: bpy.props.StringProperty(
            name="Name",
            description="A name for this item",
-           default="")
+           default="",
+           update=onUpdate)
 
     note: bpy.props.StringProperty(
            name="Note",
            description="Add a note, (not exported).",
-           default="")
+           default="",
+           update=onUpdate)
 
 
-class HVYM_DataList(bpy.types.UIList):
+class HVYM_UL_DataList(bpy.types.UIList):
     """Heavymet data list."""
 
     def draw_item(self, context, layout, data, item, icon, active_data,
@@ -207,6 +214,7 @@ class HVYM_LIST_NewPropItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'property'
+        updateNftData(context)
 
         return{'FINISHED'}
 
@@ -219,6 +227,7 @@ class HVYM_LIST_NewMeshItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'mesh'
+        updateNftData(context)
 
         return{'FINISHED'}
 
@@ -231,6 +240,7 @@ class HVYM_LIST_NewMorphItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'morph'
+        updateNftData(context)
 
         return{'FINISHED'}
 
@@ -243,6 +253,7 @@ class HVYM_LIST_NewAnimItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'anim'
+        updateNftData(context)
 
         return{'FINISHED'}
 
@@ -384,7 +395,7 @@ class HVYM_DataPanel(bpy.types.Panel):
         row.separator()
         row.label(text="NFT Data:")
         row = box.row()
-        row.template_list("HVYM_DataList", "The_List", ctx,
+        row.template_list("HVYM_UL_DataList", "The_List", ctx,
                           "hvym_meta_data", ctx, "hvym_list_index")
 
         row = box.row()
@@ -454,7 +465,7 @@ class HVYMGLTF_PT_export_user_extensions(bpy.types.Panel):
 # -------------------------------------------------------------------
 blender_classes = [
     HVYM_ListItem,
-    HVYM_DataList,
+    HVYM_UL_DataList,
     HVYM_LIST_NewPropItem,
     HVYM_LIST_NewMeshItem,
     HVYM_LIST_NewMorphItem,
@@ -471,6 +482,24 @@ blender_classes = [
     HVYMGLTF_PT_export_user_extensions
     ]
 
+def msgbus_callback(*arg):
+    # in console will be print selected_objects 
+    print("this works!!")
+    try:
+        setCollectionId(bpy.context.collection)
+    except Exception:
+        pass
+
+        
+def subscribe_to_obj(): 
+             
+    bpy.msgbus.subscribe_rna(
+        key=(bpy.types.LayerObjects, 'active'),
+        owner=bpy,
+        args=('something, if you need',),
+        notify=msgbus_callback
+        )
+
 
 def register():
     for (prop_name, prop_value) in PROPS:
@@ -485,6 +514,7 @@ def register():
 
     if not hasattr(bpy.types.Collection, 'hvym_id'):
         bpy.types.Collection.hvym_id = bpy.props.StringProperty(default = '')
+    
 
 
 
@@ -504,6 +534,7 @@ def unregister():
 
 if __name__ == "__main__":
     register()
+    subscribe_to_obj() 
 
 
 
@@ -542,8 +573,11 @@ class glTF2ExportUserExtension:
             print('----------------------------------------------------')
             print(PROPS[0][0][0])
             print('----------------------------------------------------')
-            for col in bpy.data.collections:
-                for data in col.hvym_meta_data:
-                    print(data)
+            data = {}
 
-            gltf2_object.extensions[glTF_extension_name] = {"variants": "test1"}
+            for k in bpy.context.scene.hvym_collections_data.nftData.keys():
+                print(k)
+                data[k] = bpy.context.scene.hvym_collections_data.nftData[k].to_dict()
+            
+
+            gltf2_object.extensions[glTF_extension_name] = data
