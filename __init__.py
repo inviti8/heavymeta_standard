@@ -482,24 +482,6 @@ blender_classes = [
     HVYMGLTF_PT_export_user_extensions
     ]
 
-def msgbus_callback(*arg):
-    # in console will be print selected_objects 
-    print("this works!!")
-    try:
-        setCollectionId(bpy.context.collection)
-    except Exception:
-        pass
-
-        
-def subscribe_to_obj(): 
-             
-    bpy.msgbus.subscribe_rna(
-        key=(bpy.types.LayerObjects, 'active'),
-        owner=bpy,
-        args=('something, if you need',),
-        notify=msgbus_callback
-        )
-
 
 def register():
     for (prop_name, prop_value) in PROPS:
@@ -534,7 +516,6 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-    subscribe_to_obj() 
 
 
 
@@ -567,17 +548,22 @@ class glTF2ExportUserExtension:
 
     def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
 
-        if bpy.context.scene.hvym_collections_data.enabled:
-            # data = {}
-            # data['minter-type']
-            print('----------------------------------------------------')
-            print(PROPS[0][0][0])
-            print('----------------------------------------------------')
+        ctx = bpy.context.scene
+
+        if ctx.hvym_collections_data.enabled:
             data = {}
 
-            for k in bpy.context.scene.hvym_collections_data.nftData.keys():
-                print(k)
-                data[k] = bpy.context.scene.hvym_collections_data.nftData[k].to_dict()
-            
+            for id in ctx.hvym_collections_data.nftData.keys():
+                data[id] = ctx.hvym_collections_data.nftData[id].to_dict()
+
+                for col in bpy.data.collections:
+                    if id == col.hvym_id:
+                        nodes = []
+                        for obj in col.objects:
+                            nodes.append(obj.name)
+
+                        if len(nodes) > 0:
+                            data[id]['nodes'] = nodes
+    
 
             gltf2_object.extensions[glTF_extension_name] = data
