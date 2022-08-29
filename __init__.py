@@ -64,6 +64,24 @@ from bpy.types import (Operator,
 
 
 glTF_extension_name = "HVYM_nft_data"
+collections = {}
+
+# Custom hooks. Defined here and registered/unregistered in register()/unregister().
+# Note: If other installed addon have custom hooks on the same way at the same places
+#       they can be conflicted. Ex: There are two addons A and B which have custom hooks.
+#       Imagine A is installed, B is installed, and then A is removed. B is still installed
+#       But removing A resets the hooks in unregister().
+
+# The glTF2 importer doesn't provide a hook mechanism for user extensions so
+# manually extend a function to import the extension
+from io_scene_gltf2.blender.imp.gltf2_blender_node import BlenderNode
+orig_create_mesh_object = BlenderNode.create_mesh_object
+def patched_create_mesh_object(gltf, vnode):
+    obj = orig_create_mesh_object(gltf, vnode)
+    if vnode.mesh_node_idx == 0:
+        collections = create_collections(gltf, vnode)
+    assign_collections_hvym_data(obj, gltf, vnode)
+    return obj
 
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
@@ -204,7 +222,6 @@ class HVYM_UL_DataList(bpy.types.UIList):
 # ------------------------------------------------------------------------
 #    Heavymeta Operators
 # ------------------------------------------------------------------------
-
 class HVYM_LIST_NewPropItem(bpy.types.Operator):
     """Add a new nft property item to the list."""
 
@@ -484,6 +501,8 @@ blender_classes = [
 
 
 def register():
+    BlenderNode.create_mesh_object = patched_create_mesh_object
+
     for (prop_name, prop_value) in PROPS:
         setattr(bpy.types.Collection, prop_name, prop_value)
 
@@ -517,9 +536,118 @@ def unregister():
 if __name__ == "__main__":
     register()
 
+# IMPORT
+def create_collections(gltf, vnode):
+    print(vnode.mesh_node_idx)
+    if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
+        return
+    #Collections array just created once
+    if vnode.mesh_node_idx > 0:
+        return
+
+    ext_data = gltf.data.extensions[glTF_extension_name]
+    intProps = None
+    meshProps = None
+    morphNodes = None
+    animProps = None
+    collections = {}
+
+    def set_col_data(type, prop):
+        item = collection.hvym_meta_data.add()
+        item.trait_type = type
+        item.type = prop
+        updateNftData(bpy.context)
+
+    for id in ext_data.keys():
+        name = ext_data[id]['collection_name']
+        collection = bpy.data.collections.new(name)
+        collection.hvym_id = id
+        collections[id] = collection
+        if 'intProps' in ext_data[id].keys():
+            intProps = ext_data[id]['intProps']
+            for t in intProps:
+                set_col_data('property', t)
+            
+        if 'meshProps' in ext_data[id].keys():
+            meshProps = ext_data[id]['meshProps']
+            for t in meshProps:
+                set_col_data('mesh', t)
+
+        if 'morphProps' in ext_data[id].keys():
+            morphProps = ext_data[id]['morphProps']
+            for t in morphProps:
+                set_col_data('morph', t)
+
+        if 'animProps' in ext_data[id].keys():
+            animProps = ext_data[id]['animProps']
+            for t in animProps:
+                set_col_data('anim', t)
+
+        
+        bpy.context.scene.collection.children.link(collection)
+
+    return collections
+        
+
+def assign_collections_hvym_data(obj, gltf, vnode):
+    print("This works!!")
+    print(collections)
+    print("sssss")
+    print(vnode.mesh_node_idx)
+    if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
+        return
+
+    data = gltf.data.extensions[glTF_extension_name]
+    pynode = gltf.data.nodes[vnode.mesh_node_idx]
+    pymesh = gltf.data.meshes[pynode.mesh]
+    ext_data = gltf.data.extensions[glTF_extension_name]
+
+    for col in bpy.data.collections:
+        if col.hvym_id != None:
+            id = col.hvym_id
+            print(id)
+            hvym_id = ext_data[id]
+            mapping = ext_data[id]['nodes']
+ 
+            for ob_name in mapping:
+                print('obj.name = '+obj.name)
+                print('ob_name'+ob_name)
+                if obj.name == ob_name:
+                    print('Should add object to collection.')
+                    col.objects.link(obj)
+    
+
+    # #
+    for id in collections.keys():
+        print(id)
+        hvym_id = ext_data[id]
+        mapping = ext_data[id]['nodes']
+        collection = collections[id]
+
+        for ob_name in mapping:
+            print('obj.name = '+obj.name)
+            print('ob_name'+ob_name)
+            if obj.name == ob_name:
+                print('Should add object to collection.')
+                collection.objects.link(obj)
+
+    # collection = bpy.data.collections.new("MyTestCollection")
+    # collection.objects.link(obj)
+    # bpy.context.scene.collection.children.link(collection)
+
+    # for node in gltf.data.nodes:
+    #     print(node.name)
+
+    # vnodes = [gltf.vnodes[i] for i in range(0, len(gltf.vnodes)-1)]
+    # for i, n in enumerate(vnodes):
+    #     node = gltf.data.nodes[i]
+    #     print("import descending...", i, node, n.blender_object)
+
+    # for id in data.keys():
+    #     col_data = data[id]
 
 
-
+#EXPORT
 # Use glTF-Blender-IO User extension hook mechanism
 class glTF2ExportUserExtension:
     def __init__(self):
@@ -563,6 +691,7 @@ class glTF2ExportUserExtension:
                             nodes.append(obj.name)
 
                         if len(nodes) > 0:
+                            data[id]['collection_name'] = col.name
                             data[id]['nodes'] = nodes
     
 
