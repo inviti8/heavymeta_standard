@@ -140,6 +140,7 @@ def updateNftData(context):
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'nftType': context.collection.nft_type,
                                                                                 'minterType': context.collection.minter_type,
                                                                                 'minterName': context.collection.minter_name,
+                                                                                'minterDesc': context.collection.minter_description,
                                                                                 'minterImage': context.collection.minter_image,
                                                                                 'minterVersion': context.collection.minter_version,
                                                                                 'intProps': intProps,
@@ -153,20 +154,59 @@ def updateNftData(context):
 
 def onUpdate(self, context):
     updateNftData(context)
-    
 
-PROPS = [
-    ('nft_type', bpy.props.EnumProperty(
-        name='NFT-Type',
-        items=(
+def nftTypes(self, context):
+    result = (
             ('HVYC', "Character", ""),
             ('HVYI', "Immortal", ""),
             ('HVYA', "Animal", ""),
             ('HVYW', "Weapon", ""),
             ('HVYO', "Object", ""),
             ('HVYG', "Generic", ""),
-            ('HVYAU', "Auricle", "")),
-            update=onUpdate)),
+            ('HVYAU', "Auricle", ""))
+
+    def get_index(tup, nft_type):
+        index = 0
+        for item in tup:
+            #print(item)
+            if nft_type == item[0]:
+                print('WVWVWVWVWVWVWVWWVVWWVWVWVWVVWWVVWVVWVWVWVWVWVWVWVWVWV')
+                print(index)
+                break
+            index += 1
+        
+        return index
+
+    def set_start_index(tup, nft_type):
+        if nft_type == 'HVYC':
+            return
+        index = get_index(tup, nft_type)
+        item = tup[index]
+        print(item)
+        print(index)
+        t = tup[ : 0] + (item, ) + tup[0 : ]
+        # Delete the element at old index 
+        x = t[ : index] + t[index+2: ]
+        # l = list(t)
+        # print(l)
+        # l.pop(index)
+        # print(l)
+        # x = tuple(l)
+        print(x)
+        print(t)
+
+        return x
+
+    result = set_start_index(result, 'HVYAU')
+
+    return result
+    
+
+PROPS = [
+    ('nft_type', bpy.props.EnumProperty(
+        name='NFT-Type',
+        items=nftTypes,
+        update=onUpdate)),
     ('minter_type', bpy.props.EnumProperty(
         name='Minter-Type',
         items=(
@@ -526,8 +566,6 @@ def register():
 
     if not hasattr(bpy.types.Collection, 'hvym_id'):
         bpy.types.Collection.hvym_id = bpy.props.StringProperty(default = '')
-    
-
 
 
 def unregister():
@@ -553,6 +591,7 @@ def create_collections(gltf):
         return
 
     ext_data = gltf.data.extensions[glTF_extension_name]
+    ctx = bpy.context
     intProps = None
     meshProps = None
     morphNodes = None
@@ -570,6 +609,11 @@ def create_collections(gltf):
         collection = bpy.data.collections.new(name)
         collection.hvym_id = id
         collections[id] = collection
+        collection.minter_type = ext_data[id]['minterType']
+        collection.minter_name = ext_data[id]['minterName']
+        collection.minter_description = ext_data[id]['minterDesc']
+        collection.minter_image = ext_data[id]['minterImage']
+
         if 'intProps' in ext_data[id].keys():
             intProps = ext_data[id]['intProps']
             for t in intProps:
@@ -598,9 +642,6 @@ def create_collections(gltf):
         
 
 def assign_collections_hvym_data(obj, gltf):
-    print("This works!!")
-    print("sssss")
-
     if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
         return
 
@@ -624,7 +665,6 @@ def cleanup_scene_collection():
     for ob in bpy.context.scene.collection.objects:
         if ob.name in linked.keys():
             bpy.context.scene.collection.objects.unlink(ob)
-            #del linked[ob.name]
 
 #EXPORT
 # Use glTF-Blender-IO User extension hook mechanism
