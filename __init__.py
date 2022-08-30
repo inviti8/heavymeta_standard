@@ -117,8 +117,6 @@ def setCollectionId(collection):
 def updateNftData(context):
     #Update all the props on any change
     #put them into a single structure
-
-    print("THIS IS GETTING CALLED!!!!!!")
     hvym_meta_data = context.collection.hvym_meta_data
     setCollectionId(context.collection)
     intProps = []
@@ -155,8 +153,41 @@ def updateNftData(context):
 def onUpdate(self, context):
     updateNftData(context)
 
+
+def setEnum(tup, set_enum, default_enum):
+
+    result = tup
+
+    def get_index(tup, enum_val):
+        index = 0
+        for item in tup:
+            if enum_val == item[0]:
+                break
+            index += 1
+        
+        return index
+
+    def set_start_index(tup, enum_val):
+        
+        if enum_val != default_enum:
+            index = get_index(tup, enum_val)
+            item = tup[index]
+            tup = tup[ : 0] + (item, ) + tup[0 : ]
+            # Delete the element at old index 
+            tup = tup[ : index] + tup[index+2: ]
+
+        return tup
+
+    result = set_start_index(result, set_enum)
+
+    return result
+
+
 def nftTypes(self, context):
-    result = (
+    #get the default enum, used to set enum on import
+    first_enum = context.collection.hvym_nft_type_enum 
+
+    tup = (
             ('HVYC', "Character", ""),
             ('HVYI', "Immortal", ""),
             ('HVYA', "Animal", ""),
@@ -165,39 +196,21 @@ def nftTypes(self, context):
             ('HVYG', "Generic", ""),
             ('HVYAU', "Auricle", ""))
 
-    def get_index(tup, nft_type):
-        index = 0
-        for item in tup:
-            #print(item)
-            if nft_type == item[0]:
-                print('WVWVWVWVWVWVWVWWVVWWVWVWVWVVWWVVWVVWVWVWVWVWVWVWVWVWV')
-                print(index)
-                break
-            index += 1
-        
-        return index
+    result = setEnum(tup, first_enum, 'HVYC')
 
-    def set_start_index(tup, nft_type):
-        if nft_type == 'HVYC':
-            return
-        index = get_index(tup, nft_type)
-        item = tup[index]
-        print(item)
-        print(index)
-        t = tup[ : 0] + (item, ) + tup[0 : ]
-        # Delete the element at old index 
-        x = t[ : index] + t[index+2: ]
-        # l = list(t)
-        # print(l)
-        # l.pop(index)
-        # print(l)
-        # x = tuple(l)
-        print(x)
-        print(t)
+    return result
 
-        return x
 
-    result = set_start_index(result, 'HVYAU')
+def minterTypes(self, context):
+    #get the default enum, used to set enum on import
+    first_enum = context.collection.hvym_minter_type_enum 
+
+    tup = (
+            ('payable', "Publicly Mintable", ""),
+            ('onlyOnwner', "Privately Mintable", ""))
+
+
+    result = result = setEnum(tup, first_enum, 'payable')
 
     return result
     
@@ -209,9 +222,7 @@ PROPS = [
         update=onUpdate)),
     ('minter_type', bpy.props.EnumProperty(
         name='Minter-Type',
-        items=(
-            ('payable', "Publicly Mintable", ""),
-            ('onlyOnwner', "Privately Mintable", "")),
+        items=minterTypes,
             update=onUpdate)),
     ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='', update=onUpdate)),
     ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='', update=onUpdate)),
@@ -559,10 +570,12 @@ def register():
 
     for blender_class in blender_classes:
         bpy.utils.register_class(blender_class)
-
+    
     bpy.types.Scene.hvym_collections_data = bpy.props.PointerProperty(type=HVYM_NFTDataExtensionProps)
     bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_ListItem)
     bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data", default = 0)
+    bpy.types.Collection.hvym_nft_type_enum = bpy.props.StringProperty(name = "Used to set nft type enum on import", default='HVYC')
+    bpy.types.Collection.hvym_minter_type_enum = bpy.props.StringProperty(name = "Used to set minter type enum on import", default='payable')
 
     if not hasattr(bpy.types.Collection, 'hvym_id'):
         bpy.types.Collection.hvym_id = bpy.props.StringProperty(default = '')
@@ -572,6 +585,8 @@ def unregister():
     del bpy.types.Scene.hvym_collections_data
     del bpy.types.Collection.hvym_meta_data
     del bpy.types.Collection.hvym_list_index
+    del bpy.Types.Collection.hvym_nft_type_enum
+    del bpy.Types.Collection.hvym_minter_type_enum
 
     if hasattr(bpy.types.Collection, 'hvym_id'):
         del bpy.types.Collection.hvym_id
@@ -609,7 +624,8 @@ def create_collections(gltf):
         collection = bpy.data.collections.new(name)
         collection.hvym_id = id
         collections[id] = collection
-        collection.minter_type = ext_data[id]['minterType']
+        collection.hvym_nft_type_enum = ext_data[id]['nftType']
+        collection.hvym_minter_type_enum = ext_data[id]['minterType']
         collection.minter_name = ext_data[id]['minterName']
         collection.minter_description = ext_data[id]['minterDesc']
         collection.minter_image = ext_data[id]['minterImage']
