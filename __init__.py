@@ -80,6 +80,7 @@ def patched_create_mesh_object(gltf, vnode):
     if vnode.mesh_node_idx == 0:
         create_collections(gltf, vnode)
     assign_collections_hvym_data(obj, gltf, vnode)
+    cleanup_scene_collection()
     return obj
 
 # -------------------------------------------------------------------
@@ -602,8 +603,6 @@ def assign_collections_hvym_data(obj, gltf, vnode):
     ext_data = gltf.data.extensions[glTF_extension_name]
     collection_dict = {}
     linked = bpy.context.scene.hvym_collections_data.colData
-    unlinked = []
-
 
     for col in bpy.data.collections:
         if col.hvym_id != None:
@@ -613,7 +612,18 @@ def assign_collections_hvym_data(obj, gltf, vnode):
         if obj.name not in linked and obj.name in mapping:
             col.objects.link(obj)
             linked[obj.name] = obj
-        
+
+
+def cleanup_scene_collection():
+    linked = bpy.context.scene.hvym_collections_data.colData
+    for ob in bpy.context.scene.collection.objects:
+        if ob.name in linked.keys():
+            bpy.context.scene.collection.objects.unlink(ob)
+            #del linked[ob.name]
+
+    
+
+
         
 
 
