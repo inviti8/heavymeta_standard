@@ -74,14 +74,24 @@ glTF_extension_name = "HVYM_nft_data"
 # The glTF2 importer doesn't provide a hook mechanism for user extensions so
 # manually extend a function to import the extension
 from io_scene_gltf2.blender.imp.gltf2_blender_node import BlenderNode
-orig_create_mesh_object = BlenderNode.create_mesh_object
-def patched_create_mesh_object(gltf, vnode):
-    obj = orig_create_mesh_object(gltf, vnode)
-    if vnode.mesh_node_idx == 0:
-        create_collections(gltf, vnode)
-    assign_collections_hvym_data(obj, gltf, vnode)
-    cleanup_scene_collection()
+orig_create_obj = BlenderNode.create_object
+def patched_create_object(gltf, vnode_id):
+    print('patched_create_object + '+str(vnode_id))
+    obj = orig_create_obj(gltf, vnode_id)
+    length = len(gltf.data.nodes)-1
+
+    if vnode_id == 0:
+        create_collections(gltf)
+
+    assign_collections_hvym_data(obj, gltf)
+
+    print("length is: " + str(length) + " index: " + str(vnode_id))
+    if vnode_id == length:
+        cleanup_scene_collection()
+
     return obj
+
+
 
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
@@ -502,7 +512,7 @@ blender_classes = [
 
 
 def register():
-    BlenderNode.create_mesh_object = patched_create_mesh_object
+    BlenderNode.create_object = patched_create_object
 
     for (prop_name, prop_value) in PROPS:
         setattr(bpy.types.Collection, prop_name, prop_value)
@@ -538,11 +548,8 @@ if __name__ == "__main__":
     register()
 
 # IMPORT
-def create_collections(gltf, vnode):
+def create_collections(gltf):
     if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
-        return
-    #Collections array just created once
-    if vnode.mesh_node_idx > 0:
         return
 
     ext_data = gltf.data.extensions[glTF_extension_name]
@@ -590,16 +597,14 @@ def create_collections(gltf, vnode):
     return collections
         
 
-def assign_collections_hvym_data(obj, gltf, vnode):
+def assign_collections_hvym_data(obj, gltf):
     print("This works!!")
     print("sssss")
-    print(vnode.mesh_node_idx)
+
     if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
         return
 
     data = gltf.data.extensions[glTF_extension_name]
-    pynode = gltf.data.nodes[vnode.mesh_node_idx]
-    pymesh = gltf.data.meshes[pynode.mesh]
     ext_data = gltf.data.extensions[glTF_extension_name]
     collection_dict = {}
     linked = bpy.context.scene.hvym_collections_data.colData
@@ -620,62 +625,6 @@ def cleanup_scene_collection():
         if ob.name in linked.keys():
             bpy.context.scene.collection.objects.unlink(ob)
             #del linked[ob.name]
-
-    
-
-
-        
-
-
-
-
-
-
-            
-
-    # for col in bpy.data.collections:
-    #     if col.hvym_id != None:
-    #         id = col.hvym_id
-    #         print(id)
-    #         hvym_id = ext_data[id]
-    #         mapping = ext_data[id]['nodes']
- 
-    #         for ob_name in mapping:
-    #             #print('obj.name = '+obj.name)
-    #             #print('ob_name'+ob_name)
-    #             if obj.name in mapping:
-    #                 print('Should add object to collection.')
-    #                 if obj.name not in linked:
-    #                     col.objects.link(obj)
-    #                     linked.append(obj.name)
-
-    #                 # for o in bpy.context.scene.collection.objects:
-    #                 #     if o.name == ob_name:
-    #                 #         print(o.name)
-    #                 #         bpy.context.scene.collection.objects.unlink(o)
-
-    #         for o in bpy.context.scene.collection.objects:
-    #             if o.name in mapping and o.name not in linked and o.name not in unlinked:
-    #                 print('should remove from scene collection.')
-    #                 bpy.context.scene.collection.objects.unlink(o)
-    #                 unlinked.append(o.name)
-    
-
-    # collection = bpy.data.collections.new("MyTestCollection")
-    # collection.objects.link(obj)
-    # bpy.context.scene.collection.children.link(collection)
-
-    # for node in gltf.data.nodes:
-    #     print(node.name)
-
-    # vnodes = [gltf.vnodes[i] for i in range(0, len(gltf.vnodes)-1)]
-    # for i, n in enumerate(vnodes):
-    #     node = gltf.data.nodes[i]
-    #     print("import descending...", i, node, n.blender_object)
-
-    # for id in data.keys():
-    #     col_data = data[id]
-
 
 #EXPORT
 # Use glTF-Blender-IO User extension hook mechanism
