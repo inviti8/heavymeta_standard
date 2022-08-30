@@ -64,7 +64,6 @@ from bpy.types import (Operator,
 
 
 glTF_extension_name = "HVYM_nft_data"
-collections = {}
 
 # Custom hooks. Defined here and registered/unregistered in register()/unregister().
 # Note: If other installed addon have custom hooks on the same way at the same places
@@ -79,7 +78,7 @@ orig_create_mesh_object = BlenderNode.create_mesh_object
 def patched_create_mesh_object(gltf, vnode):
     obj = orig_create_mesh_object(gltf, vnode)
     if vnode.mesh_node_idx == 0:
-        collections = create_collections(gltf, vnode)
+        create_collections(gltf, vnode)
     assign_collections_hvym_data(obj, gltf, vnode)
     return obj
 
@@ -452,6 +451,7 @@ class HVYM_DataPanel(bpy.types.Panel):
 class HVYM_NFTDataExtensionProps(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(name="enabled", default=True)
     nftData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
+    colData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
 
 
 bpy.types.GLTF_PT_export_user_extensions.bl_id = 'GLTF_PT_export_user_extensions'
@@ -538,7 +538,6 @@ if __name__ == "__main__":
 
 # IMPORT
 def create_collections(gltf, vnode):
-    print(vnode.mesh_node_idx)
     if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
         return
     #Collections array just created once
@@ -585,13 +584,13 @@ def create_collections(gltf, vnode):
 
         
         bpy.context.scene.collection.children.link(collection)
+            
 
     return collections
         
 
 def assign_collections_hvym_data(obj, gltf, vnode):
     print("This works!!")
-    print(collections)
     print("sssss")
     print(vnode.mesh_node_idx)
     if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
@@ -601,35 +600,56 @@ def assign_collections_hvym_data(obj, gltf, vnode):
     pynode = gltf.data.nodes[vnode.mesh_node_idx]
     pymesh = gltf.data.meshes[pynode.mesh]
     ext_data = gltf.data.extensions[glTF_extension_name]
+    collection_dict = {}
+    linked = bpy.context.scene.hvym_collections_data.colData
+    unlinked = []
+
 
     for col in bpy.data.collections:
         if col.hvym_id != None:
             id = col.hvym_id
-            print(id)
-            hvym_id = ext_data[id]
             mapping = ext_data[id]['nodes']
+
+        if obj.name not in linked and obj.name in mapping:
+            col.objects.link(obj)
+            linked[obj.name] = obj
+        
+        
+
+
+
+
+
+
+            
+
+    # for col in bpy.data.collections:
+    #     if col.hvym_id != None:
+    #         id = col.hvym_id
+    #         print(id)
+    #         hvym_id = ext_data[id]
+    #         mapping = ext_data[id]['nodes']
  
-            for ob_name in mapping:
-                print('obj.name = '+obj.name)
-                print('ob_name'+ob_name)
-                if obj.name == ob_name:
-                    print('Should add object to collection.')
-                    col.objects.link(obj)
+    #         for ob_name in mapping:
+    #             #print('obj.name = '+obj.name)
+    #             #print('ob_name'+ob_name)
+    #             if obj.name in mapping:
+    #                 print('Should add object to collection.')
+    #                 if obj.name not in linked:
+    #                     col.objects.link(obj)
+    #                     linked.append(obj.name)
+
+    #                 # for o in bpy.context.scene.collection.objects:
+    #                 #     if o.name == ob_name:
+    #                 #         print(o.name)
+    #                 #         bpy.context.scene.collection.objects.unlink(o)
+
+    #         for o in bpy.context.scene.collection.objects:
+    #             if o.name in mapping and o.name not in linked and o.name not in unlinked:
+    #                 print('should remove from scene collection.')
+    #                 bpy.context.scene.collection.objects.unlink(o)
+    #                 unlinked.append(o.name)
     
-
-    # #
-    for id in collections.keys():
-        print(id)
-        hvym_id = ext_data[id]
-        mapping = ext_data[id]['nodes']
-        collection = collections[id]
-
-        for ob_name in mapping:
-            print('obj.name = '+obj.name)
-            print('ob_name'+ob_name)
-            if obj.name == ob_name:
-                print('Should add object to collection.')
-                collection.objects.link(obj)
 
     # collection = bpy.data.collections.new("MyTestCollection")
     # collection.objects.link(obj)
@@ -660,19 +680,19 @@ class glTF2ExportUserExtension:
             return
 
         # Compile data objects in sets by collection
-        mappings = []
-        for col in bpy.data.collections:
-            print(col.name)
-            mappings.append(col.name)
+        # mappings = []
+        # for col in bpy.data.collections:
+        #     print(col.name)
+        #     mappings.append(col.name)
 
-        if bpy.types.Scene.hvym_collections_data.enabled:
-            if gltf2_object.extensions is None:
-                gltf2_object.extensions = {}
-            gltf2_object.extensions[glTF_extension_name] = self.Extension(
-                name = glTF_extension_name,
-                extension = mappings,
-                required = False
-            )
+        # if bpy.types.Scene.hvym_collections_data.enabled:
+        #     if gltf2_object.extensions is None:
+        #         gltf2_object.extensions = {}
+        #     gltf2_object.extensions[glTF_extension_name] = self.Extension(
+        #         name = glTF_extension_name,
+        #         extension = mappings,
+        #         required = False
+        #     )
 
     def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
 
