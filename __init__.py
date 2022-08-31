@@ -117,12 +117,16 @@ def setCollectionId(collection):
 def updateNftData(context):
     #Update all the props on any change
     #put them into a single structure
+    if context.collection.name == 'Scene Collection':
+        return
+        
     hvym_meta_data = context.collection.hvym_meta_data
     setCollectionId(context.collection)
     intProps = []
     meshProps = []
     morphProps = []
     animProps = []
+    nodes = []
 
     for i in range(len(hvym_meta_data)):
         if hvym_meta_data[i].trait_type == 'property':
@@ -133,6 +137,9 @@ def updateNftData(context):
             morphProps.append(hvym_meta_data[i].type)
         elif hvym_meta_data[i].trait_type == 'anim':
             animProps.append(hvym_meta_data[i].type)
+
+    for obj in context.collection.objects:
+        nodes.append(obj.name)
         
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'nftType': context.collection.nft_type,
@@ -144,7 +151,9 @@ def updateNftData(context):
                                                                                 'intProps': intProps,
                                                                                 'meshProps': meshProps,
                                                                                 'morphProps': morphProps,
-                                                                                'animProps': animProps
+                                                                                'animProps': animProps,
+                                                                                "collection_name": context.collection.name,
+                                                                                "nodes": nodes
                                                                                 }
     
     print(context.scene.hvym_collections_data.nftData[context.collection.hvym_id].to_dict())
@@ -219,16 +228,18 @@ PROPS = [
     ('nft_type', bpy.props.EnumProperty(
         name='NFT-Type',
         items=nftTypes,
+        description ="Heavymeta NFT type, see docs for more detail.",
         update=onUpdate)),
     ('minter_type', bpy.props.EnumProperty(
         name='Minter-Type',
         items=minterTypes,
-            update=onUpdate)),
-    ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='', update=onUpdate)),
-    ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='', update=onUpdate)),
-    ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', update=onUpdate)),
-    ('add_version', bpy.props.BoolProperty(name='Minter-Version', default=False)),
-    ('minter_version', bpy.props.IntProperty(name='Version', default=-1, update=onUpdate)),
+        description ="Minted by creator only, or public.",
+        update=onUpdate)),
+    ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='', description ="Name of minter.", update=onUpdate)),
+    ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
+    ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
+    ('add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT.", default=False)),
+    ('minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT.", update=onUpdate)),
 ]
 
 
@@ -418,10 +429,21 @@ class HVYM_LIST_DirectionDown(bpy.types.Operator):
         HVYM_LIST_MoveItem.execute(HVYM_LIST_MoveItem, context)
         return{'FINISHED'}
 
+class HVYM_DataReload(bpy.types.Operator):
+    bl_idname = "hvym_data.reload"
+    bl_label = "Reload Data"
+    bl_description ="Reload the data for this collection."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Update NFT Data")
+        updateNftData(bpy.context)
+        return {'FINISHED'}
 
 class HVYM_DebugMinter(bpy.types.Operator):
     bl_idname = "hvym_debug.minter"
     bl_label = "Launch Minter Debug UI"
+    bl_description ="Launch minter UI debug."
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -434,6 +456,7 @@ class HVYM_DebugMinter(bpy.types.Operator):
 class HVYM_DebugModel(bpy.types.Operator):
     bl_idname = "hvym_debug.model"
     bl_label = "Launch Model Debug UI"
+    bl_description ="Launch model UI debug."
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -444,6 +467,7 @@ class HVYM_DebugModel(bpy.types.Operator):
 class HVYM_DeployMinter(bpy.types.Operator):
     bl_idname = "hvym_deploy.minter"
     bl_label = "Launch Deploy Minter UI"
+    bl_description ="Deploy NFT minter."
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -461,6 +485,9 @@ class HVYM_DataPanel(bpy.types.Panel):
 
     def draw(self, context):
         col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
         ctx = context.collection
         for (prop_name, _) in PROPS:
             row = col.row()
@@ -555,6 +582,7 @@ blender_classes = [
     HVYM_LIST_DirectionDown,
     HVYM_DebugMinter,
     HVYM_DebugModel,
+    HVYM_DataReload,
     HVYM_DeployMinter,
     HVYM_DataPanel,
     HVYM_NFTDataExtensionProps,
@@ -629,6 +657,10 @@ def create_collections(gltf):
         collection.minter_name = ext_data[id]['minterName']
         collection.minter_description = ext_data[id]['minterDesc']
         collection.minter_image = ext_data[id]['minterImage']
+        collection.minter_version = ext_data[id]['minterVersion']
+
+        if collection.minter_version > 0:
+            collection.add_version = True
 
         if 'intProps' in ext_data[id].keys():
             intProps = ext_data[id]['intProps']
@@ -652,6 +684,8 @@ def create_collections(gltf):
 
         
         bpy.context.scene.collection.children.link(collection)
+
+        updateNftData(bpy.context)
             
 
     return collections
@@ -725,9 +759,9 @@ class glTF2ExportUserExtension:
                         for obj in col.objects:
                             nodes.append(obj.name)
 
-                        if len(nodes) > 0:
-                            data[id]['collection_name'] = col.name
-                            data[id]['nodes'] = nodes
+                        data[id]['collection_name'] = col.name
+                        data[id]['nodes'] = nodes
+                            
     
 
             gltf2_object.extensions[glTF_extension_name] = data
