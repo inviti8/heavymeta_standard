@@ -42,6 +42,7 @@ bl_info = {
 
 from configparser import InterpolationDepthError
 from contextvars import Context
+from socket import has_dualstack_ipv6
 from time import time
 import bpy
 import re
@@ -58,7 +59,9 @@ from bpy.types import (Panel,
                        Collection)
 
 from bpy.types import (Operator,
+                       Header,
                        Panel,
+                       Menu,
                        PropertyGroup,
                        UIList)
 
@@ -543,6 +546,9 @@ class HVYM_NFTDataExtensionProps(bpy.types.PropertyGroup):
     colData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
 
 
+# -------------------------------------------------------------------
+#   DEBUG RIGHT CLICK MENU
+# ------------------------------------------------------------------- 
 bpy.types.GLTF_PT_export_user_extensions.bl_id = 'GLTF_PT_export_user_extensions'
 class HVYMGLTF_PT_export_user_extensions(bpy.types.Panel):
     bl_id = 'HVYMGLTF_PT_export_user_extensions'
@@ -566,6 +572,87 @@ class HVYMGLTF_PT_export_user_extensions(bpy.types.Panel):
     def draw(self, context):
         self.layout.label(text="test")
         pass
+
+def dump(obj, text):
+    print('-'*40, text, '-'*40)
+    for attr in dir(obj):
+        if hasattr( obj, attr ):
+            print( "obj.%s = %s" % (attr, getattr(obj, attr)))
+
+class TestOp(bpy.types.Operator):
+    """Tooltip"""
+    bl_idname = "object.test_op"
+    bl_label = "Execute a custom action"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        if hasattr(context, 'button_pointer'):
+            btn = context.button_pointer 
+            dump(btn, 'button_pointer')
+
+        if hasattr(context, 'button_prop'):
+            prop = context.button_prop
+            dump(prop, 'button_prop')
+
+        if hasattr(context, 'button_operator'):
+            op = context.button_operator
+            dump(op, 'button_operator')     
+
+        return {'FINISHED'}
+
+
+# -------------------------------------------------------------------
+#   Panel Right Click operators
+# ------------------------------------------------------------------- 
+def menu_func(self, context):
+    layout = self.layout
+    # layout.separator()
+    # layout.operator(TestOp.bl_idname)
+    layout.separator()
+    layout.operator(HVYM_AddMorph.bl_idname)
+
+def has_hvym_data(trait_type, type_str):
+        result = False
+        for data in bpy.context.collection.hvym_meta_data:
+            if trait_type == data.trait_type and type_str == data.type:
+                result = True
+                break
+
+        return result
+
+# This class has to be exactly named like that to insert an entry in the right click menu
+class WM_MT_button_context(Menu):
+    bl_label = "Add Viddyoze Tag"
+
+    def draw(self, context):
+        pass
+
+class HVYM_AddMorph(bpy.types.Operator):
+    """Add this morph to the Heavymeta Data list."""
+    bl_idname = "hvym_add.morph"
+    bl_label = "[HVYM]:Add Morph Data"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        if hasattr(context, 'button_pointer'):
+            btn = context.button_pointer
+            print(btn.active_shape_key.name)
+            if has_hvym_data('morph', btn.active_shape_key.name) == False:
+                item = context.collection.hvym_meta_data.add()
+                item.trait_type = 'morph'
+                item.type = btn.active_shape_key.name
+            else:
+                print("Item already exists in data.")
+    
+
+        return {'FINISHED'}
+
 # -------------------------------------------------------------------
 #   Class Registration
 # -------------------------------------------------------------------
@@ -586,7 +673,10 @@ blender_classes = [
     HVYM_DeployMinter,
     HVYM_DataPanel,
     HVYM_NFTDataExtensionProps,
-    HVYMGLTF_PT_export_user_extensions
+    HVYMGLTF_PT_export_user_extensions,
+    TestOp,
+    WM_MT_button_context,
+    HVYM_AddMorph
     ]
 
 
@@ -604,6 +694,7 @@ def register():
     bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data", default = 0)
     bpy.types.Collection.hvym_nft_type_enum = bpy.props.StringProperty(name = "Used to set nft type enum on import", default='HVYC')
     bpy.types.Collection.hvym_minter_type_enum = bpy.props.StringProperty(name = "Used to set minter type enum on import", default='payable')
+    bpy.types.WM_MT_button_context.append(menu_func)
 
     if not hasattr(bpy.types.Collection, 'hvym_id'):
         bpy.types.Collection.hvym_id = bpy.props.StringProperty(default = '')
@@ -615,6 +706,7 @@ def unregister():
     del bpy.types.Collection.hvym_list_index
     del bpy.Types.Collection.hvym_nft_type_enum
     del bpy.Types.Collection.hvym_minter_type_enum
+    bpy.types.WM_MT_button_context.remove(menu_func)
 
     if hasattr(bpy.types.Collection, 'hvym_id'):
         del bpy.types.Collection.hvym_id
