@@ -619,6 +619,11 @@ def outliner_menu_func(self, context):
     layout.separator()
     layout.operator(HVYM_AddModel.bl_idname)
 
+def nla_menu_func(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.operator(HVYM_AddAnim.bl_idname)
+
 def has_hvym_data(trait_type, type_str):
         result = False
         for data in bpy.context.collection.hvym_meta_data:
@@ -682,6 +687,39 @@ class HVYM_AddModel(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class HVYM_AddAnim(bpy.types.Operator):
+    """Add a NLA animation to the Heavymeta Data list."""
+    bl_idname = "hvym_add.anim"
+    bl_label = "[HVYM]:Add Animation Data"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        ob = context.object
+        ad = ob.animation_data
+        active_track = None
+
+        if ad:
+            for i, track in enumerate(ad.nla_tracks):
+                if track.active:
+                    active_track = track
+                    break
+
+        if active_track != None and has_hvym_data('anim', active_track.name) == False:
+                item = context.collection.hvym_meta_data.add()
+                item.trait_type = 'anim'
+                item.type = active_track.name
+        else:
+            print("Item already exists in data.")
+
+        
+
+    
+
+        return {'FINISHED'}
+
 # -------------------------------------------------------------------
 #   Class Registration
 # -------------------------------------------------------------------
@@ -706,7 +744,8 @@ blender_classes = [
     TestOp,
     WM_MT_button_context,
     HVYM_AddMorph,
-    HVYM_AddModel
+    HVYM_AddModel,
+    HVYM_AddAnim
     ]
 
 
@@ -726,6 +765,7 @@ def register():
     bpy.types.Collection.hvym_minter_type_enum = bpy.props.StringProperty(name = "Used to set minter type enum on import", default='payable')
     bpy.types.WM_MT_button_context.append(btn_menu_func)
     bpy.types.OUTLINER_MT_object.append(outliner_menu_func)
+    bpy.types.NLA_MT_channel_context_menu.append(nla_menu_func)
 
     if not hasattr(bpy.types.Collection, 'hvym_id'):
         bpy.types.Collection.hvym_id = bpy.props.StringProperty(default = '')
@@ -739,6 +779,7 @@ def unregister():
     del bpy.Types.Collection.hvym_minter_type_enum
     bpy.types.WM_MT_button_context.remove(btn_menu_func)
     bpy.types.OUTLINER_MT_object.remove(outliner_menu_func)
+    bpy.types.NLA_MT_channel_context_menu.remove(nla_menu_func)
 
     if hasattr(bpy.types.Collection, 'hvym_id'):
         del bpy.types.Collection.hvym_id
