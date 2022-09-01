@@ -56,11 +56,9 @@ from bpy.types import (Panel,
                        StringProperty,
                        EnumProperty,
                        CollectionProperty,
-                       Collection)
-
-from bpy.types import (Operator,
+                       Collection,
+                       Operator,
                        Header,
-                       Panel,
                        Menu,
                        PropertyGroup,
                        UIList)
@@ -159,7 +157,6 @@ def updateNftData(context):
                                                                                 "nodes": nodes
                                                                                 }
     
-    print(context.scene.hvym_collections_data.nftData[context.collection.hvym_id].to_dict())
 
 
 def onUpdate(self, context):
@@ -225,7 +222,7 @@ def minterTypes(self, context):
     result = result = setEnum(tup, first_enum, 'payable')
 
     return result
-    
+
 
 PROPS = [
     ('nft_type', bpy.props.EnumProperty(
@@ -443,6 +440,44 @@ class HVYM_DataReload(bpy.types.Operator):
         updateNftData(bpy.context)
         return {'FINISHED'}
 
+class HVYM_DataOrder(bpy.types.Operator):
+    bl_idname = "hvym_data.order"
+    bl_label = "Order Data"
+    bl_description ="Reorder the data for this collection."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        hvym_meta_data = bpy.context.collection.hvym_meta_data
+        intProps = []
+        meshProps = []
+        morphProps = []
+        animProps = []
+
+        for data in hvym_meta_data:
+            obj = {'trait_type':data.trait_type, 'type':data.type}
+            if obj['trait_type'] == 'property':
+                intProps.append(obj)
+            elif obj['trait_type'] == 'mesh':
+                meshProps.append(obj)
+            elif obj['trait_type'] == 'morph':
+                morphProps.append(obj)
+            elif obj['trait_type'] == 'anim':
+                animProps.append(obj)
+
+        allProps = [intProps, meshProps, morphProps, animProps]
+
+        for i in range(len(hvym_meta_data)):
+            bpy.ops.hvym_meta_data.delete_item()
+            
+        
+        for arr in allProps:
+            for item in arr:
+                new_item = bpy.context.collection.hvym_meta_data.add()
+                new_item.trait_type = item['trait_type']
+                new_item.type = item['type']
+
+        return {'FINISHED'}
+
 class HVYM_DebugMinter(bpy.types.Operator):
     bl_idname = "hvym_debug.minter"
     bl_label = "Launch Minter Debug UI"
@@ -503,6 +538,7 @@ class HVYM_DataPanel(bpy.types.Panel):
         row.separator()
         row.label(text="NFT Data:")
         row = box.row()
+        row.operator('hvym_data.order', text='', icon='LINENUMBERS_ON')
         row.template_list("HVYM_UL_DataList", "The_List", ctx,
                           "hvym_meta_data", ctx, "hvym_list_index")
 
@@ -737,6 +773,7 @@ blender_classes = [
     HVYM_DebugMinter,
     HVYM_DebugModel,
     HVYM_DataReload,
+    HVYM_DataOrder,
     HVYM_DeployMinter,
     HVYM_DataPanel,
     HVYM_NFTDataExtensionProps,
