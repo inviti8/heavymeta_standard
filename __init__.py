@@ -607,12 +607,17 @@ class TestOp(bpy.types.Operator):
 # -------------------------------------------------------------------
 #   Panel Right Click operators
 # ------------------------------------------------------------------- 
-def menu_func(self, context):
+def btn_menu_func(self, context):
     layout = self.layout
     # layout.separator()
     # layout.operator(TestOp.bl_idname)
     layout.separator()
     layout.operator(HVYM_AddMorph.bl_idname)
+
+def outliner_menu_func(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.operator(HVYM_AddModel.bl_idname)
 
 def has_hvym_data(trait_type, type_str):
         result = False
@@ -653,6 +658,30 @@ class HVYM_AddMorph(bpy.types.Operator):
 
         return {'FINISHED'}
 
+
+class HVYM_AddModel(bpy.types.Operator):
+    """Add a model to the Heavymeta Data list."""
+    bl_idname = "hvym_add.model"
+    bl_label = "[HVYM]:Add Model Data"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None and len(bpy.context.selected_objects) > 0
+
+    def execute(self, context):
+        if bpy.context.selected_objects[0] != None:
+            obj = bpy.context.selected_objects[0]
+            print('add model to data')
+            if has_hvym_data('model', obj.name) == False:
+                item = context.collection.hvym_meta_data.add()
+                item.trait_type = 'model'
+                item.type = obj.name
+            else:
+                print("Item already exists in data.")
+    
+
+        return {'FINISHED'}
+
 # -------------------------------------------------------------------
 #   Class Registration
 # -------------------------------------------------------------------
@@ -676,7 +705,8 @@ blender_classes = [
     HVYMGLTF_PT_export_user_extensions,
     TestOp,
     WM_MT_button_context,
-    HVYM_AddMorph
+    HVYM_AddMorph,
+    HVYM_AddModel
     ]
 
 
@@ -694,7 +724,8 @@ def register():
     bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data", default = 0)
     bpy.types.Collection.hvym_nft_type_enum = bpy.props.StringProperty(name = "Used to set nft type enum on import", default='HVYC')
     bpy.types.Collection.hvym_minter_type_enum = bpy.props.StringProperty(name = "Used to set minter type enum on import", default='payable')
-    bpy.types.WM_MT_button_context.append(menu_func)
+    bpy.types.WM_MT_button_context.append(btn_menu_func)
+    bpy.types.OUTLINER_MT_object.append(outliner_menu_func)
 
     if not hasattr(bpy.types.Collection, 'hvym_id'):
         bpy.types.Collection.hvym_id = bpy.props.StringProperty(default = '')
@@ -706,7 +737,8 @@ def unregister():
     del bpy.types.Collection.hvym_list_index
     del bpy.Types.Collection.hvym_nft_type_enum
     del bpy.Types.Collection.hvym_minter_type_enum
-    bpy.types.WM_MT_button_context.remove(menu_func)
+    bpy.types.WM_MT_button_context.remove(btn_menu_func)
+    bpy.types.OUTLINER_MT_object.remove(outliner_menu_func)
 
     if hasattr(bpy.types.Collection, 'hvym_id'):
         del bpy.types.Collection.hvym_id
