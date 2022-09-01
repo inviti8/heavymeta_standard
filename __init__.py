@@ -144,6 +144,7 @@ def updateNftData(context):
         
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'nftType': context.collection.nft_type,
+                                                                                'nftPrice': round(context.collection.nft_price, 4),
                                                                                 'minterType': context.collection.minter_type,
                                                                                 'minterName': context.collection.minter_name,
                                                                                 'minterDesc': context.collection.minter_description,
@@ -230,6 +231,7 @@ PROPS = [
         items=nftTypes,
         description ="Heavymeta NFT type, see docs for more detail.",
         update=onUpdate)),
+    ('nft_price', bpy.props.FloatProperty(name='NFT-Price', default=0.01, description ="Price of NFT in eth.", update=onUpdate)),
     ('minter_type', bpy.props.EnumProperty(
         name='Minter-Type',
         items=minterTypes,
@@ -468,13 +470,13 @@ class HVYM_DataOrder(bpy.types.Operator):
 
         for i in range(len(hvym_meta_data)):
             bpy.ops.hvym_meta_data.delete_item()
-            
         
         for arr in allProps:
             for item in arr:
                 new_item = bpy.context.collection.hvym_meta_data.add()
                 new_item.trait_type = item['trait_type']
                 new_item.type = item['type']
+                
 
         return {'FINISHED'}
 
@@ -854,6 +856,7 @@ def create_collections(gltf):
         collection = bpy.data.collections.new(name)
         collection.hvym_id = id
         collections[id] = collection
+        collection.nft_price = ext_data[id]['nftPrice']
         collection.hvym_nft_type_enum = ext_data[id]['nftType']
         collection.hvym_minter_type_enum = ext_data[id]['minterType']
         collection.minter_name = ext_data[id]['minterName']
