@@ -145,6 +145,8 @@ def updateNftData(context):
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'nftType': context.collection.nft_type,
                                                                                 'nftPrice': round(context.collection.nft_price, 4),
+                                                                                'premNftPrice': round(context.collection.prem_nft_price, 4),
+                                                                                'maxSupply': round(context.collection.max_supply, -1),
                                                                                 'minterType': context.collection.minter_type,
                                                                                 'minterName': context.collection.minter_name,
                                                                                 'minterDesc': context.collection.minter_description,
@@ -232,6 +234,8 @@ PROPS = [
         description ="Heavymeta NFT type, see docs for more detail.",
         update=onUpdate)),
     ('nft_price', bpy.props.FloatProperty(name='NFT-Price', default=0.01, description ="Price of NFT in eth.", update=onUpdate)),
+    ('prem_nft_price', bpy.props.FloatProperty(name='Premium-NFT-Price', default=0.01, description ="Premium price of customized NFT in eth.", update=onUpdate)),
+    ('max_supply', bpy.props.IntProperty(name='Max-Suppy', default=-1, description ="Max number that can be minted, if -1 supply is infinite.", update=onUpdate)),
     ('minter_type', bpy.props.EnumProperty(
         name='Minter-Type',
         items=minterTypes,
