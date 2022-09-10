@@ -127,6 +127,7 @@ def updateNftData(context):
     meshProps = []
     morphProps = []
     animProps = []
+    materials = []
     nodes = []
 
     for i in range(len(hvym_meta_data)):
@@ -138,6 +139,8 @@ def updateNftData(context):
             morphProps.append(hvym_meta_data[i].type)
         elif hvym_meta_data[i].trait_type == 'anim':
             animProps.append(hvym_meta_data[i].type)
+        elif hvym_meta_data[i].trait_type == 'material':
+            materials.append(hvym_meta_data[i].type)
 
     for obj in context.collection.objects:
         nodes.append(obj.name)
@@ -146,7 +149,7 @@ def updateNftData(context):
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'nftType': context.collection.nft_type,
                                                                                 'nftPrice': round(context.collection.nft_price, 4),
                                                                                 'premNftPrice': round(context.collection.prem_nft_price, 4),
-                                                                                'maxSupply': round(context.collection.max_supply, -1),
+                                                                                'maxSupply': context.collection.max_supply,
                                                                                 'minterType': context.collection.minter_type,
                                                                                 'minterName': context.collection.minter_name,
                                                                                 'minterDesc': context.collection.minter_description,
@@ -156,6 +159,7 @@ def updateNftData(context):
                                                                                 'meshProps': meshProps,
                                                                                 'morphProps': morphProps,
                                                                                 'animProps': animProps,
+                                                                                'materials': materials,
                                                                                 "collection_name": context.collection.name,
                                                                                 "nodes": nodes
                                                                                 }
@@ -284,8 +288,10 @@ class HVYM_UL_DataList(bpy.types.UIList):
             custom_icon = 'MESH_ICOSPHERE'
         elif item.trait_type == 'morph':
             custom_icon = 'SHAPEKEY_DATA'
-        if item.trait_type == 'anim':
+        elif item.trait_type == 'anim':
             custom_icon = 'ACTION_TWEAK'
+        elif item.trait_type == 'material':
+            custom_icon = 'SHADING_RENDERED'
 
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -348,6 +354,19 @@ class HVYM_LIST_NewAnimItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'anim'
+        updateNftData(context)
+
+        return{'FINISHED'}
+
+class HVYM_LIST_NewMatItem(bpy.types.Operator):
+    """Add a new animation item to the list."""
+
+    bl_idname = "hvym_meta_data.new_mat_item"
+    bl_label = "Add a new material item"
+
+    def execute(self, context):
+        item = context.collection.hvym_meta_data.add()
+        item.trait_type = 'material'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -458,6 +477,7 @@ class HVYM_DataOrder(bpy.types.Operator):
         meshProps = []
         morphProps = []
         animProps = []
+        materials = []
 
         for data in hvym_meta_data:
             obj = {'trait_type':data.trait_type, 'type':data.type}
@@ -469,8 +489,10 @@ class HVYM_DataOrder(bpy.types.Operator):
                 morphProps.append(obj)
             elif obj['trait_type'] == 'anim':
                 animProps.append(obj)
+            elif obj['trait_type'] == 'material':
+                materials.append(obj)
 
-        allProps = [intProps, meshProps, morphProps, animProps]
+        allProps = [intProps, meshProps, morphProps, animProps, materials]
 
         for i in range(len(hvym_meta_data)):
             bpy.ops.hvym_meta_data.delete_item()
@@ -553,6 +575,7 @@ class HVYM_DataPanel(bpy.types.Panel):
         row.operator('hvym_meta_data.new_mesh_item', text='+', icon='MESH_ICOSPHERE')
         row.operator('hvym_meta_data.new_morph_item', text='+', icon='SHAPEKEY_DATA')
         row.operator('hvym_meta_data.new_anim_item', text='+', icon='ACTION_TWEAK')
+        row.operator('hvym_meta_data.new_mat_item', text='+', icon='SHADING_RENDERED')
         row.operator('hvym_meta_data.delete_item', text='', icon='CANCEL')
         row.operator('hvym_meta_data.set_direction_up', text='', icon='SORT_DESC')
         row.operator('hvym_meta_data.set_direction_down', text='', icon='SORT_ASC')
@@ -660,6 +683,8 @@ def outliner_menu_func(self, context):
     layout = self.layout
     layout.separator()
     layout.operator(HVYM_AddModel.bl_idname)
+    layout.separator()
+    layout.operator(HVYM_AddMaterial.bl_idname)
 
 def nla_menu_func(self, context):
     layout = self.layout
@@ -713,7 +738,7 @@ class HVYM_AddModel(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and len(bpy.context.selected_objects) > 0
+        return context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Object'
 
     def execute(self, context):
         if bpy.context.selected_objects[0] != None:
@@ -756,11 +781,30 @@ class HVYM_AddAnim(bpy.types.Operator):
         else:
             print("Item already exists in data.")
 
-        
 
+class HVYM_AddMaterial(bpy.types.Operator):
+    """Add a material to the Heavymeta Data list."""
+    bl_idname = "hvym_add.material"
+    bl_label = "[HVYM]:Add Material Data"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Material'
+
+    def execute(self, context):
+        matName  = context.selected_ids[0].name
+        if matName != None:
+            if has_hvym_data('material', matName) == False:
+                item = context.collection.hvym_meta_data.add()
+                item.trait_type = 'material'
+                item.type = matName
+            else:
+                print("Item already exists in data.")
     
 
         return {'FINISHED'}
+
+
 
 # -------------------------------------------------------------------
 #   Class Registration
@@ -772,6 +816,7 @@ blender_classes = [
     HVYM_LIST_NewMeshItem,
     HVYM_LIST_NewMorphItem,
     HVYM_LIST_NewAnimItem,
+    HVYM_LIST_NewMatItem,
     HVYM_LIST_DeleteItem,
     HVYM_LIST_MoveItem,
     HVYM_LIST_DirectionUp,
@@ -788,7 +833,8 @@ blender_classes = [
     WM_MT_button_context,
     HVYM_AddMorph,
     HVYM_AddModel,
-    HVYM_AddAnim
+    HVYM_AddAnim,
+    HVYM_AddMaterial
     ]
 
 
@@ -807,7 +853,7 @@ def register():
     bpy.types.Collection.hvym_nft_type_enum = bpy.props.StringProperty(name = "Used to set nft type enum on import", default='HVYC')
     bpy.types.Collection.hvym_minter_type_enum = bpy.props.StringProperty(name = "Used to set minter type enum on import", default='payable')
     bpy.types.WM_MT_button_context.append(btn_menu_func)
-    bpy.types.OUTLINER_MT_object.append(outliner_menu_func)
+    bpy.types.OUTLINER_MT_asset.append(outliner_menu_func)
     bpy.types.NLA_MT_channel_context_menu.append(nla_menu_func)
 
     if not hasattr(bpy.types.Collection, 'hvym_id'):
@@ -821,7 +867,7 @@ def unregister():
     del bpy.Types.Collection.hvym_nft_type_enum
     del bpy.Types.Collection.hvym_minter_type_enum
     bpy.types.WM_MT_button_context.remove(btn_menu_func)
-    bpy.types.OUTLINER_MT_object.remove(outliner_menu_func)
+    bpy.types.OUTLINER_MT_asset.remove(outliner_menu_func)
     bpy.types.NLA_MT_channel_context_menu.remove(nla_menu_func)
 
     if hasattr(bpy.types.Collection, 'hvym_id'):
