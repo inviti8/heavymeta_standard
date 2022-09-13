@@ -40,6 +40,7 @@ bl_info = {
     'description': 'Assign Heavymeta Standard properties and meta-data at the Collection level.',
 }
 
+import collections
 from configparser import InterpolationDepthError
 from contextvars import Context
 from socket import has_dualstack_ipv6
@@ -144,6 +145,7 @@ def updateNftData(context):
 
     for obj in context.collection.objects:
         nodes.append(obj.name)
+        obj.hvym_id = context.collection.hvym_id
         
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'nftType': context.collection.nft_type,
@@ -248,8 +250,8 @@ PROPS = [
     ('minter_name', bpy.props.StringProperty(name='Minter-Name', default='', description ="Name of minter.", update=onUpdate)),
     ('minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
     ('minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
-    ('add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT.", default=False)),
-    ('minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT.", update=onUpdate)),
+    ('add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
+    ('minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
 ]
 
 
@@ -859,6 +861,9 @@ def register():
     if not hasattr(bpy.types.Collection, 'hvym_id'):
         bpy.types.Collection.hvym_id = bpy.props.StringProperty(default = '')
 
+    if not hasattr(bpy.types.Object, 'hvym_id'):
+        bpy.types.Object.hvym_id = bpy.props.StringProperty(default = '')
+
 
 def unregister():
     del bpy.types.Scene.hvym_collections_data
@@ -872,6 +877,9 @@ def unregister():
 
     if hasattr(bpy.types.Collection, 'hvym_id'):
         del bpy.types.Collection.hvym_id
+
+    if hasattr(bpy.types.Object, 'hvym_id'):
+        del bpy.types.Object.hvym_id
 
     for (prop_name, _) in PROPS:
         delattr(bpy.types.Collection, prop_name)
@@ -973,14 +981,14 @@ def cleanup_scene_collection():
 
 #EXPORT
 # Use glTF-Blender-IO User extension hook mechanism
-class glTF2ExportUserExtension:
+class glTF2ExportHVYMExtension:
     def __init__(self):
         from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
         self.Extension = Extension
 
     # Gather export data
     def gather_node_hook(self, gltf2_object, blender_object, export_settings):
-        if len(bpy.data.collections) > 0:
+        if len(bpy.data.collections) == 0:
             return
 
         # Compile data objects in sets by collection
