@@ -1040,7 +1040,7 @@ def cleanup_scene_collection():
 
 #EXPORT
 # Use glTF-Blender-IO User extension hook mechanism
-class glTF2ExportHVYMExtension:
+class glTF2ExportUserExtension:
     def __init__(self):
         from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
         self.Extension = Extension
