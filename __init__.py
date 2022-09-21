@@ -133,11 +133,17 @@ def updateNftData(context):
 
     for i in range(len(hvym_meta_data)):
         if hvym_meta_data[i].trait_type == 'property':
-            intProps.append(hvym_meta_data[i].type)
+            data={}
+            data[hvym_meta_data[i].type] = hvym_meta_data[i].values
+            intProps.append(data)
         elif hvym_meta_data[i].trait_type == 'mesh':
-            meshProps.append(hvym_meta_data[i].type)
+            data={}
+            data[hvym_meta_data[i].type] = hvym_meta_data[i].values
+            meshProps.append(data)
         elif hvym_meta_data[i].trait_type == 'morph':
-            morphProps.append(hvym_meta_data[i].type)
+            data={}
+            data[hvym_meta_data[i].type] = hvym_meta_data[i].values
+            morphProps.append(data)
         elif hvym_meta_data[i].trait_type == 'anim':
             animProps.append(hvym_meta_data[i].type)
         elif hvym_meta_data[i].trait_type == 'material':
@@ -270,6 +276,12 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    values: bpy.props.StringProperty(
+           name="Values",
+           description="Add '(default, min, max)'",
+           default="",
+           update=onUpdate)
+
     note: bpy.props.StringProperty(
            name="Note",
            description="Add a note, (not exported).",
@@ -298,12 +310,12 @@ class HVYM_UL_DataList(bpy.types.UIList):
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.label(text=item.type, icon = custom_icon)
-            layout.label(text=item.note)
+            layout.label(text=item.values)
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.label(text=item.type, icon = custom_icon)
-            layout.label(text=item.note)
+            layout.label(text=item.values)
 
 # ------------------------------------------------------------------------
 #    Heavymeta Operators
@@ -317,6 +329,8 @@ class HVYM_LIST_NewPropItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'property'
+        item.type = '*'
+        item.values = '(0,0,1)'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -330,6 +344,8 @@ class HVYM_LIST_NewMeshItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'mesh'
+        item.type = '*'
+        item.values = 'visible'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -343,6 +359,8 @@ class HVYM_LIST_NewMorphItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'morph'
+        item.type = '*'
+        item.values = '(0,0,1)'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -356,6 +374,8 @@ class HVYM_LIST_NewAnimItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'anim'
+        item.type = '*'
+        item.values = 'N/A'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -369,6 +389,7 @@ class HVYM_LIST_NewMatItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'material'
+        item.values = 'N/A'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -456,6 +477,36 @@ class HVYM_LIST_DirectionDown(bpy.types.Operator):
         HVYM_LIST_MoveItem.execute(HVYM_LIST_MoveItem, context)
         return{'FINISHED'}
 
+
+class HVYM_LIST_DefaultValues(bpy.types.Operator):
+    """Set default values for item."""
+
+    bl_idname = "hvym_meta_data.default_values"
+    bl_label = "Set default values for item in the list."
+
+    @classmethod
+    def poll(cls, context):
+        return context.collection.hvym_meta_data
+
+    def execute(self, context):
+        hvym_meta_data = context.collection.hvym_meta_data
+        index = context.collection.hvym_list_index
+
+        item = hvym_meta_data[index]
+
+        if item.trait_type == 'property':
+            item.values = '(0,0,1)'
+        elif item.trait_type == 'mesh':
+            item.values = 'visible'
+        elif item.trait_type == 'morph':
+            item.values = '(0,0,1)'
+        elif item.trait_type == 'anim':
+            item.values = 'N/A'
+        elif item.trait_type == 'material':
+            item.values = 'N/A'
+
+        return{'FINISHED'}
+
 class HVYM_DataReload(bpy.types.Operator):
     bl_idname = "hvym_data.reload"
     bl_label = "Reload Data"
@@ -482,7 +533,7 @@ class HVYM_DataOrder(bpy.types.Operator):
         materials = []
 
         for data in hvym_meta_data:
-            obj = {'trait_type':data.trait_type, 'type':data.type}
+            obj = {'trait_type':data.trait_type, 'type':data.type, 'values':data.values}
             if obj['trait_type'] == 'property':
                 intProps.append(obj)
             elif obj['trait_type'] == 'mesh':
@@ -504,6 +555,7 @@ class HVYM_DataOrder(bpy.types.Operator):
                 new_item = bpy.context.collection.hvym_meta_data.add()
                 new_item.trait_type = item['trait_type']
                 new_item.type = item['type']
+                new_item.values = item['values']
                 
 
         return {'FINISHED'}
@@ -581,12 +633,15 @@ class HVYM_DataPanel(bpy.types.Panel):
         row.operator('hvym_meta_data.delete_item', text='', icon='CANCEL')
         row.operator('hvym_meta_data.set_direction_up', text='', icon='SORT_DESC')
         row.operator('hvym_meta_data.set_direction_down', text='', icon='SORT_ASC')
+        row.operator('hvym_meta_data.default_values', text='', icon='CON_TRANSLIKE')
 
         if ctx.hvym_list_index >= 0 and ctx.hvym_meta_data:
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
 
             row = box.row()
             row.prop(item, "type")
+            row.prop(item, "values")
+            row = box.row()
             row.prop(item, "note")
         row = col.row()
         row.separator()
@@ -823,6 +878,7 @@ blender_classes = [
     HVYM_LIST_MoveItem,
     HVYM_LIST_DirectionUp,
     HVYM_LIST_DirectionDown,
+    HVYM_LIST_DefaultValues,
     HVYM_DebugMinter,
     HVYM_DebugModel,
     HVYM_DataReload,
