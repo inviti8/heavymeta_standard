@@ -781,6 +781,7 @@ class HVYM_AddMorph(bpy.types.Operator):
                 item = context.collection.hvym_meta_data.add()
                 item.trait_type = 'morph'
                 item.type = btn.active_shape_key.name
+                item.values = '(0,0,1)'
             else:
                 print("Item already exists in data.")
     
@@ -803,8 +804,9 @@ class HVYM_AddModel(bpy.types.Operator):
             print('add model to data')
             if has_hvym_data('model', obj.name) == False:
                 item = context.collection.hvym_meta_data.add()
-                item.trait_type = 'model'
+                item.trait_type = 'mesh'
                 item.type = obj.name
+                item.values = 'visible'
             else:
                 print("Item already exists in data.")
     
@@ -962,7 +964,8 @@ def create_collections(gltf):
     def set_col_data(type, prop):
         item = collection.hvym_meta_data.add()
         item.trait_type = type
-        item.type = prop
+        item.type = prop.type
+        item.values = prop.values
         updateNftData(bpy.context)
 
     for id in ext_data.keys():
