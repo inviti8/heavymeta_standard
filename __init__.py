@@ -154,7 +154,7 @@ def updateNftData(context):
         obj.hvym_id = context.collection.hvym_id
         
 
-    context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'nftType': context.collection.nft_type,
+    context.scene.hvym_collections_data.nftData['contract'] =                   {'nftType': context.collection.nft_type,
                                                                                 'nftPrice': round(context.collection.nft_price, 4),
                                                                                 'premNftPrice': round(context.collection.prem_nft_price, 4),
                                                                                 'maxSupply': context.collection.max_supply,
@@ -162,8 +162,10 @@ def updateNftData(context):
                                                                                 'minterName': context.collection.minter_name,
                                                                                 'minterDesc': context.collection.minter_description,
                                                                                 'minterImage': context.collection.minter_image,
-                                                                                'minterVersion': context.collection.minter_version,
-                                                                                'intProps': intProps,
+                                                                                'minterVersion': context.collection.minter_version
+                                                                                }
+
+    context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'intProps': intProps,
                                                                                 'meshProps': meshProps,
                                                                                 'morphProps': morphProps,
                                                                                 'animProps': animProps,
@@ -609,12 +611,6 @@ class HVYM_DataPanel(bpy.types.Panel):
         row = box.row()
         row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
         ctx = context.collection
-        for (prop_name, _) in PROPS:
-            row = col.row()
-            if prop_name == 'minter_version':
-                row = row.row()
-                row.enabled = context.collection.add_version
-            row.prop(context.collection, prop_name)
         box = col.box()
         row = box.row()
         row.separator()
@@ -643,6 +639,28 @@ class HVYM_DataPanel(bpy.types.Panel):
             row.prop(item, "values")
             row = box.row()
             row.prop(item, "note")
+
+
+class HVYM_ScenePanel(bpy.types.Panel):
+    """Creates a Panel in the Object properties window"""
+    bl_label = "Heavymeta Standard"
+    bl_idname = "SCENE_PT_heavymeta_standard_data"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "scene"
+
+    def draw(self, context):
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
+        ctx = context.collection
+        for (prop_name, _) in PROPS:
+            row = col.row()
+            if prop_name == 'minter_version':
+                row = row.row()
+                row.enabled = context.collection.add_version
+            row.prop(context.collection, prop_name)
         row = col.row()
         row.separator()
         box = col.box()
@@ -665,6 +683,7 @@ class HVYM_DataPanel(bpy.types.Panel):
 class HVYM_NFTDataExtensionProps(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(name="enabled", default=True)
     nftData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
+    metaData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
     colData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
 
 
@@ -857,6 +876,7 @@ class HVYM_AddMaterial(bpy.types.Operator):
                 item = context.collection.hvym_meta_data.add()
                 item.trait_type = 'material'
                 item.type = matName
+                item.values = 'N/A'
             else:
                 print("Item already exists in data.")
     
@@ -887,6 +907,7 @@ blender_classes = [
     HVYM_DataOrder,
     HVYM_DeployMinter,
     HVYM_DataPanel,
+    HVYM_ScenePanel,
     HVYM_NFTDataExtensionProps,
     HVYMGLTF_PT_export_user_extensions,
     TestOp,
