@@ -683,7 +683,6 @@ class HVYM_ScenePanel(bpy.types.Panel):
 class HVYM_NFTDataExtensionProps(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(name="enabled", default=True)
     nftData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
-    metaData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
     colData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
 
 
