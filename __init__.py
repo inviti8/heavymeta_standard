@@ -132,22 +132,19 @@ def updateNftData(context):
     nodes = []
 
     for i in range(len(hvym_meta_data)):
+        data={}
+        data[hvym_meta_data[i].type] = hvym_meta_data[i].values
+
         if hvym_meta_data[i].trait_type == 'property':
-            data={}
-            data[hvym_meta_data[i].type] = hvym_meta_data[i].values
             intProps.append(data)
         elif hvym_meta_data[i].trait_type == 'mesh':
-            data={}
-            data[hvym_meta_data[i].type] = hvym_meta_data[i].values
             meshProps.append(data)
         elif hvym_meta_data[i].trait_type == 'morph':
-            data={}
-            data[hvym_meta_data[i].type] = hvym_meta_data[i].values
             morphProps.append(data)
         elif hvym_meta_data[i].trait_type == 'anim':
-            animProps.append(hvym_meta_data[i].type)
+            animProps.append(data)
         elif hvym_meta_data[i].trait_type == 'material':
-            materials.append(hvym_meta_data[i].type)
+            materials.append(data)
 
     for obj in context.collection.objects:
         nodes.append(obj.name)
