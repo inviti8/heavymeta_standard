@@ -39,7 +39,7 @@ bl_info = {
     'author': 'Meta-Cronos',
     'description': 'Assign Heavymeta Standard properties and meta-data at the Collection level.',
 }
-import os
+
 import collections
 from configparser import InterpolationDepthError
 from contextvars import Context
@@ -63,7 +63,7 @@ from bpy.types import (Panel,
                        Menu,
                        PropertyGroup,
                        UIList)
-
+from bpy_extras.io_utils import ExportHelper
 
 glTF_extension_name = "HVYM_nft_data"
 
@@ -130,7 +130,6 @@ def updateNftData(context):
     animProps = []
     materials = []
     nodes = []
-    md_text = ""
 
     for i in range(len(hvym_meta_data)):
         data={}
@@ -150,10 +149,6 @@ def updateNftData(context):
     for obj in context.collection.objects:
         nodes.append(obj.name)
         obj.hvym_id = context.collection.hvym_id
-
-    if os.path.isfile(context.scene.hvym_minter_md_path) and '.md' in context.scene.hvym_minter_md_path:
-        with open(context.scene.hvym_minter_md_path, "r") as f:
-            md_text = f.read()
         
 
     context.scene.hvym_collections_data.nftData['contract'] =                   {'nftType': context.scene.hvym_nft_type,
@@ -164,7 +159,6 @@ def updateNftData(context):
                                                                                 'minterName': context.scene.hvym_minter_name,
                                                                                 'minterDesc': context.scene.hvym_minter_description,
                                                                                 'minterImage': context.scene.hvym_minter_image,
-                                                                                'minterMdText': md_text,
                                                                                 'minterVersion': context.scene.hvym_minter_version
                                                                                 }
 
@@ -275,8 +269,6 @@ PROPS = [
     ('hvym_minter_name', bpy.props.StringProperty(name='Minter-Name', default='', description ="Name of minter.", update=onUpdate)),
     ('hvym_minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
-    ('hvym_minter_md_path', bpy.props.StringProperty(name='MD-File', subtype='FILE_PATH', default='', description ="Path to markdown file to be embedded in gltf.", update=onUpdate)),
-    ('hvym_minter_md_text', bpy.props.StringProperty(name='MD-Text', default='', description ="", update=onUpdate)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
 ]
@@ -612,39 +604,8 @@ class HVYM_DebugModel(bpy.types.Operator):
         print("Debug Model")
         return {'FINISHED'}
 
-class HVYM_DeployMinter(bpy.types.Operator):
-    bl_idname = "hvym_deploy.minter"
-    bl_label = "Launch Deploy Minter UI"
-    bl_description ="Deploy NFT minter."
-    bl_options = {'REGISTER', 'UNDO'}
 
-    def execute(self, context):
-        print("Deploy Minter")
-        #bpy.ops.export_scene.gltf('INVOKE_DEFAULT')
-        bpy.ops.hvym_deploy.gltf('INVOKE_DEFAULT')
-        return {'FINISHED'}
-
-class HVYM_DeployConfirmDialog(bpy.types.Operator):
-    """Really?"""
-    bl_idname = "hvym_deploy.confirm_dialog"
-    bl_label = "Do you really want to do that?"
-    bl_options = {'REGISTER', 'INTERNAL'}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        self.report({'INFO'}, "YES!")
-        bpy.ops.hvym_deploy.minter()
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        return context.window_manager.invoke_confirm(self, event)
-
-
-class HVYM_DeployGLTF(bpy.types.Operator, ExportHelper):
-    """Export scene in glTF format"""
+class HVYM_ExportHelper(bpy.types.Operator, ExportHelper):
     bl_idname = "hvym_deploy.gltf"
     bl_label = "Export glTF"
     filename_ext = ".gltf"
@@ -858,10 +819,41 @@ class HVYM_DeployGLTF(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         filepath = self.filepath
         bpy.context.scene.hvym_collections_data.enabled = True
-        bpy.ops.export_scene.gltf(filepath=filepath, check_existing=self.check_existing, export_format=self.export_format, export_copyright=self.export_copyright, export_texcoords=self.export_texcoords, export_normals=self.export_normals, export_tangents=self.export_tangents, export_colors=self.export_colors, use_mesh_edges=self.use_mesh_edges, use_mesh_vertices=self.use_mesh_vertices, export_cameras=self.export_cameras, use_selection=self.use_selection, use_visible=self.use_visible, use_renderable=self.use_renderable, use_active_collection=self.use_active_collection, use_active_scene=self.use_active_scene, export_yup=self.export_yup, export_frame_range=self.export_frame_range, export_frame_step=self.export_frame_step, export_force_sampling=self.export_force_sampling, export_nla_strips=self.export_nla_strips, export_def_bones=self.export_def_bones, export_all_influences=self.export_all_influences, export_morph_normal=self.export_morph_normal, export_morph_tangent=self.export_morph_tangent, export_lights=self.export_lights)
+        bpy.ops.export_scene.gltf(filepath=filepath)
+        #bpy.ops.export_scene.gltf(filepath=filepath, check_existing=self.check_existing, export_format=self.export_format, export_copyright=self.export_copyright, export_texcoords=self.export_texcoords, export_normals=self.export_normals, export_tangents=self.export_tangents, export_colors=self.export_colors, use_mesh_edges=self.use_mesh_edges, use_mesh_vertices=self.use_mesh_vertices, export_cameras=self.export_cameras, use_selection=self.use_selection, use_visible=self.use_visible, use_renderable=self.use_renderable, use_active_collection=self.use_active_collection, use_active_scene=self.use_active_scene, export_yup=self.export_yup, export_frame_range=self.export_frame_range, export_frame_step=self.export_frame_step, export_force_sampling=self.export_force_sampling, export_nla_strips=self.export_nla_strips, export_def_bones=self.export_def_bones, export_all_influences=self.export_all_influences, export_morph_normal=self.export_morph_normal, export_morph_tangent=self.export_morph_tangent, export_lights=self.export_lights)
         print("Exported glTF to: ", filepath)
         return {'FINISHED'}
 
+
+class HVYM_DeployMinter(bpy.types.Operator):
+    bl_idname = "hvym_deploy.minter"
+    bl_label = "Launch Deploy Minter UI"
+    bl_description ="Deploy NFT minter."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Deploy Minter")
+        bpy.ops.hvym_deploy.gltf('INVOKE_DEFAULT')
+        return {'FINISHED'}
+
+
+class HVYM_DeployConfirmDialog(bpy.types.Operator):
+    """Really?"""
+    bl_idname = "hvym_deploy.confirm_dialog"
+    bl_label = "Do you really want to do that?"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        self.report({'INFO'}, "YES!")
+        bpy.ops.hvym_deploy.minter()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
 
 
 class HVYM_DataPanel(bpy.types.Panel):
@@ -933,8 +925,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
             if prop_name == 'minter_version':
                 row = row.row()
                 row.enabled = context.scene.add_version
-            if prop_name != 'hvym_minter_md_text':
-                row.prop(context.scene, prop_name)
+            row.prop(context.scene, prop_name)
         row = col.row()
         row.separator()
         box = col.box()
@@ -1178,9 +1169,9 @@ blender_classes = [
     HVYM_DebugModel,
     HVYM_DataReload,
     HVYM_DataOrder,
+    HVYM_ExportHelper,
     HVYM_DeployMinter,
     HVYM_DeployConfirmDialog,
-    HVYM_DeployGLTF,
     HVYM_DataPanel,
     HVYM_ScenePanel,
     HVYM_NFTDataExtensionProps,
@@ -1280,8 +1271,6 @@ def create_collections(gltf):
             bpy.context.scene.hvym_minter_name = ext_data[id]['minterName']
             bpy.context.scene.hvym_minter_description = ext_data[id]['minterDesc']
             bpy.context.scene.hvym_minter_image = ext_data[id]['minterImage']
-            bpy.context.scene.hvym_minter_md_path = ext_data[id]['minterMdPath']
-            bpy.context.scene.hvym_minter_md_text = ext_data[id]['minterMdText']
             bpy.context.scene.hvym_minter_version = ext_data[id]['minterVersion']
 
             if bpy.context.scene.hvym_minter_version > 0:
@@ -1364,19 +1353,19 @@ class glTF2ExportUserExtension:
             return
 
         # Compile data objects in sets by collection
-        mappings = []
-        for col in bpy.data.collections:
-            print(col.name)
-            mappings.append(col.name)
+        # mappings = []
+        # for col in bpy.data.collections:
+        #     print(col.name)
+        #     mappings.append(col.name)
 
-        if bpy.types.Scene.hvym_collections_data.enabled:
-            if gltf2_object.extensions is None:
-                gltf2_object.extensions = {glTF_extension_name : None}
-            gltf2_object.extensions[glTF_extension_name] = self.Extension(
-                name = glTF_extension_name,
-                extension = mappings,
-                required = False
-            )
+        # if bpy.types.Scene.hvym_collections_data.enabled:
+        #     if gltf2_object.extensions is None:
+        #         gltf2_object.extensions = {}
+        #     gltf2_object.extensions[glTF_extension_name] = self.Extension(
+        #         name = glTF_extension_name,
+        #         extension = mappings,
+        #         required = False
+        #     )
 
     def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
 
