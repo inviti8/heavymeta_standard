@@ -605,6 +605,225 @@ class HVYM_DebugModel(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class HVYM_ExportHelper(bpy.types.Operator):
+    bl_idname = "hvym_deploy.gltf"
+    bl_label = "Export glTF"
+    filename_ext = ".gltf"
+    export_types = (('GLB', ".glb", "Exports a single file, with all data packed in binary form. Most efficient and portable, but more difficult to edit later"),
+                   ('GLTF_SEPARATE', ".gltf + .bin + textures", "Separate (.gltf + .bin + textures) – Exports multiple files, with separate JSON, binary and texture data. Easiest to edit later."),
+                   ('GLTF_EMBEDDED', ".gltf", "Exports a single file, with all data packed in JSON. Less efficient than binary, but easier to edit later."),
+                   )
+
+    export_copyright: bpy.props.StringProperty(name="Copyright", description="Legal rights and conditions for the model.")
+
+    check_existing: bpy.props.BoolProperty(
+            name="Check Existing",
+            description="Check Existing, Check and warn on overwriting existing files",
+            default=False)
+
+    export_format: bpy.props.EnumProperty(
+        name='Format',
+        items=export_types,
+        description ="Minted by creator only, or public.")
+
+    use_selection: bpy.props.BoolProperty(
+            name="Selected Objects",
+            description="Export selected objects only.",
+            default=False)
+
+    use_visible: bpy.props.BoolProperty(
+            name="Visible Objects",
+            description="Export visible objects only.",
+            default=False)
+
+    use_renderable: bpy.props.BoolProperty(
+            name="Renderable Objects",
+            description="Export renderable objects only.",
+            default=False)
+
+    use_active_collection: bpy.props.BoolProperty(
+            name="Active Collection",
+            description="Export objects in the active collection only.",
+            default=False)
+
+    use_active_scene: bpy.props.BoolProperty(
+            name="Active Scene",
+            description="Export active scene only.",
+            default=False)
+
+    use_custom_props: bpy.props.BoolProperty(
+            name="Custom Properties",
+            description="Export custom properties.",
+            default=False)
+
+    export_cameras: bpy.props.BoolProperty(
+            name="Cameras",
+            description="Export cameras.",
+            default=False)
+
+    export_lights: bpy.props.BoolProperty(
+            name="Punctual Lights",
+            description="Export directional, point, and spot lights. Uses “KHR_lights_punctual” glTF extension.",
+            default=False)
+
+    export_yup : bpy.props.BoolProperty(
+            name="+Y Up",
+            description="Export using glTF convention, +Y up.",
+            default=True)
+
+    use_mesh_modifiers : bpy.props.BoolProperty(
+            name="Apply Modifiers",
+            description=" Apply modifiers to mesh objects (except Armature ones) - WARNING: prevents exporting shape keys.",
+            default=False)
+
+    export_texcoords : bpy.props.BoolProperty(
+            name="UVs",
+            description="Export UVs (texture coordinates) with meshes.",
+            default=True)
+
+    export_normals : bpy.props.BoolProperty(
+            name="Normals",
+            description="Export vertex normals with meshes.",
+            default=True)
+
+    export_tangents : bpy.props.BoolProperty(
+            name="Tangents",
+            description="Export vertex tangents with meshes.",
+            default=False)
+
+    export_colors : bpy.props.BoolProperty(
+            name="Vertex Colors",
+            description="Export vertex colors with meshes.",
+            default=True)
+
+    use_mesh_edges : bpy.props.BoolProperty(
+            name="Loose Edges",
+            description="Export loose edges as lines, using the material from the first material slot.",
+            default=False)
+
+    use_mesh_vertices : bpy.props.BoolProperty(
+            name="Loose Points",
+            description="Export loose points as glTF points, using the material from the first material slot.",
+            default=False)
+
+    export_frame_range : bpy.props.BoolProperty(
+            name="Limit to Playback Range",
+            description="Clips animations to selected playback range.",
+            default=True)
+
+    export_frame_step: bpy.props.IntProperty(
+            name="Sampling Rate",
+            min=1, max=120,
+            default=1,
+            )
+
+    export_force_sampling : bpy.props.BoolProperty(
+            name="Always Sample Animations",
+            description="Apply sampling to all animations.",
+            default=True)
+
+    export_nla_strips : bpy.props.BoolProperty(
+            name="Group by NLA Track",
+            description=" When on, multiple actions become part of the same glTF animation if they’re pushed onto NLA tracks with the same name. When off, all the currently assigned actions become one glTF animation.",
+            default=True)
+
+    export_optimize_animation_size : bpy.props.BoolProperty(
+            name="Optimize Animation Size",
+            description=" Reduce exported file-size by removing duplicate keyframes(can cause problems with stepped animation).",
+            default=False)
+
+    export_def_bones : bpy.props.BoolProperty(
+            name="Export Deformation Bones Only",
+            description="Export Deformation bones only.",
+            default=False)
+
+    export_morph_normal : bpy.props.BoolProperty(
+            name="Shape Key Normals",
+            description="Export vertex normals with shape keys (morph targets).",
+            default=True)
+
+    export_morph_tangent : bpy.props.BoolProperty(
+            name="Shape Key Tangents",
+            description="Export vertex tangents with shape keys (morph targets).",
+            default=False)
+
+    export_all_influences : bpy.props.BoolProperty(
+            name=" Include All Bone Influence",
+            description="Allow >4 joint vertex influences. Models may appear incorrectly in many viewers.",
+            default=False)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "export_format")
+        layout.prop(self, "export_types")
+        layout.prop(self, "export_copyright")
+        layout.prop(self, "check_existing")
+        # Add an expandable UI list for visibility settings
+        box0 = layout.box()
+        box0.label(text="Visibility")
+        row = box0.row()
+        row.prop(self, "use_selection")
+        row.prop(self, "use_visible")
+        row = box0.row()
+        row.prop(self, "use_renderable")
+        row.prop(self, "use_active_collection")
+        row = box0.row()
+        row.prop(self, "use_active_scene")
+        row.prop(self, "use_custom_props")
+        row = box0.row()
+        row.prop(self, "export_cameras")
+        row.prop(self, "export_lights")
+
+        box1 = layout.box()
+        box1.label(text="Transform")
+        row = box1.row()
+        row.prop(self, "export_yup")
+
+        box2 = layout.box()
+        box2.label(text="Geometry")
+        row = box2.row()
+        row.prop(self, "use_mesh_modifiers")
+        row.prop(self, "export_texcoords")
+        row = box2.row()
+        row.prop(self, "export_normals")
+        row.prop(self, "export_tangents")
+        row = box2.row()
+        row.prop(self, "export_colors")
+        row.prop(self, "use_mesh_edges")
+        row = box2.row()
+        row.prop(self, "use_mesh_vertices")
+
+        box3 = layout.box()
+        box3.label(text="Animation")
+        row = box3.row()
+        row.prop(self, "export_frame_range")
+        row.prop(self, "export_frame_step")
+        row = box3.row()
+        row.prop(self, "export_force_sampling")
+        row.prop(self, "export_nla_strips")
+        row = box3.row()
+        row.prop(self, "export_optimize_animation_size")
+        row.prop(self, "export_def_bones")
+
+        box4 = layout.box()
+        box4.label(text="Shape Keys")
+        row = box4.row()
+        row.prop(self, "export_morph_normal")
+        row.prop(self, "export_morph_tangent")
+
+        box5 = layout.box()
+        box5.label(text="Skinning")
+        row = box5.row()
+        row.prop(self, "export_all_influences")
+
+    def execute(self, context):
+        filepath = self.filepath
+        bpy.context.scene.hvym_collections_data.enabled = True
+        bpy.ops.export_scene.gltf(filepath=filepath, check_existing=self.check_existing, export_format=self.export_format, export_copyright=self.export_copyright, export_texcoords=self.export_texcoords, export_normals=self.export_normals, export_tangents=self.export_tangents, export_colors=self.export_colors, use_mesh_edges=self.use_mesh_edges, use_mesh_vertices=self.use_mesh_vertices, export_cameras=self.export_cameras, use_selection=self.use_selection, use_visible=self.use_visible, use_renderable=self.use_renderable, use_active_collection=self.use_active_collection, use_active_scene=self.use_active_scene, export_yup=self.export_yup, export_frame_range=self.export_frame_range, export_frame_step=self.export_frame_step, export_force_sampling=self.export_force_sampling, export_nla_strips=self.export_nla_strips, export_def_bones=self.export_def_bones, export_all_influences=self.export_all_influences, export_morph_normal=self.export_morph_normal, export_morph_tangent=self.export_morph_tangent, export_lights=self.export_lights)
+        print("Exported glTF to: ", filepath)
+        return {'FINISHED'}
+
+
 class HVYM_DeployMinter(bpy.types.Operator):
     bl_idname = "hvym_deploy.minter"
     bl_label = "Launch Deploy Minter UI"
@@ -614,6 +833,25 @@ class HVYM_DeployMinter(bpy.types.Operator):
     def execute(self, context):
         print("Deploy Minter")
         return {'FINISHED'}
+
+
+class HVYM_DeployConfirmDialog(bpy.types.Operator):
+    """Really?"""
+    bl_idname = "hvym_deploy.confirm_dialog"
+    bl_label = "Do you really want to do that?"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        self.report({'INFO'}, "YES!")
+        bpy.ops.hvym_deploy.minter()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
 
 
 class HVYM_DataPanel(bpy.types.Panel):
@@ -929,7 +1167,9 @@ blender_classes = [
     HVYM_DebugModel,
     HVYM_DataReload,
     HVYM_DataOrder,
+    HVYM_ExportHelper,
     HVYM_DeployMinter,
+    HVYM_DeployConfirmDialog,
     HVYM_DataPanel,
     HVYM_ScenePanel,
     HVYM_NFTDataExtensionProps,
