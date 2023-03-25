@@ -271,6 +271,8 @@ PROPS = [
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
+    ('hvym_pinata_jwt', bpy.props.StringProperty(name='Pinata-JWT', default='', description ="JWT key for uploads.", update=onUpdate)),
+    ('hvym_pinata_gateway', bpy.props.StringProperty(name='Pinata-Gateway', default='', description ="Pinata Gatway url.", update=onUpdate))
 ]
 
 COL_PROPS = [
@@ -819,8 +821,8 @@ class HVYM_ExportHelper(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         filepath = self.filepath
         bpy.context.scene.hvym_collections_data.enabled = True
-        bpy.ops.export_scene.gltf(filepath=filepath)
-        #bpy.ops.export_scene.gltf(filepath=filepath, check_existing=self.check_existing, export_format=self.export_format, export_copyright=self.export_copyright, export_texcoords=self.export_texcoords, export_normals=self.export_normals, export_tangents=self.export_tangents, export_colors=self.export_colors, use_mesh_edges=self.use_mesh_edges, use_mesh_vertices=self.use_mesh_vertices, export_cameras=self.export_cameras, use_selection=self.use_selection, use_visible=self.use_visible, use_renderable=self.use_renderable, use_active_collection=self.use_active_collection, use_active_scene=self.use_active_scene, export_yup=self.export_yup, export_frame_range=self.export_frame_range, export_frame_step=self.export_frame_step, export_force_sampling=self.export_force_sampling, export_nla_strips=self.export_nla_strips, export_def_bones=self.export_def_bones, export_all_influences=self.export_all_influences, export_morph_normal=self.export_morph_normal, export_morph_tangent=self.export_morph_tangent, export_lights=self.export_lights)
+        #bpy.ops.export_scene.gltf(filepath=filepath)
+        bpy.ops.export_scene.gltf(filepath=filepath, check_existing=self.check_existing, export_format=self.export_format, export_copyright=self.export_copyright, export_texcoords=self.export_texcoords, export_normals=self.export_normals, export_tangents=self.export_tangents, export_colors=self.export_colors, use_mesh_edges=self.use_mesh_edges, use_mesh_vertices=self.use_mesh_vertices, export_cameras=self.export_cameras, use_selection=self.use_selection, use_visible=self.use_visible, use_renderable=self.use_renderable, use_active_collection=self.use_active_collection, use_active_scene=self.use_active_scene, export_yup=self.export_yup, export_frame_range=self.export_frame_range, export_frame_step=self.export_frame_step, export_force_sampling=self.export_force_sampling, export_nla_strips=self.export_nla_strips, export_def_bones=self.export_def_bones, export_all_influences=self.export_all_influences, export_morph_normal=self.export_morph_normal, export_morph_tangent=self.export_morph_tangent, export_lights=self.export_lights)
         print("Exported glTF to: ", filepath)
         return {'FINISHED'}
 
@@ -840,7 +842,7 @@ class HVYM_DeployMinter(bpy.types.Operator):
 class HVYM_DeployConfirmDialog(bpy.types.Operator):
     """Really?"""
     bl_idname = "hvym_deploy.confirm_dialog"
-    bl_label = "Do you really want to do that?"
+    bl_label = "Ready to deploy to ipfs?"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     @classmethod
@@ -848,7 +850,7 @@ class HVYM_DeployConfirmDialog(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        self.report({'INFO'}, "YES!")
+        self.report({'INFO'}, "YES")
         bpy.ops.hvym_deploy.minter()
         return {'FINISHED'}
 
@@ -925,7 +927,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
             if prop_name == 'minter_version':
                 row = row.row()
                 row.enabled = context.scene.add_version
-            row.prop(context.scene, prop_name)
+            if prop_name != 'hvym_pinata_jwt' and prop_name != 'hvym_pinata_gateway':
+                row.prop(context.scene, prop_name)
         row = col.row()
         row.separator()
         box = col.box()
@@ -934,6 +937,13 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row = box.row()
         row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
         row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
+        box = col.box()
+        row = box.row()
+        row.label(text="Pinata:")
+        for (prop_name, _) in PROPS:
+            if prop_name == 'hvym_pinata_jwt' or prop_name == 'hvym_pinata_gateway':
+                row = box.row()
+                row.prop(context.scene, prop_name)
         box = col.box()
         row = box.row()
         row.separator()
@@ -1353,19 +1363,18 @@ class glTF2ExportUserExtension:
             return
 
         # Compile data objects in sets by collection
-        # mappings = []
-        # for col in bpy.data.collections:
-        #     print(col.name)
-        #     mappings.append(col.name)
+        mappings = []
+        for col in bpy.data.collections:
+            mappings.append(col.name)
 
-        # if bpy.types.Scene.hvym_collections_data.enabled:
-        #     if gltf2_object.extensions is None:
-        #         gltf2_object.extensions = {}
-        #     gltf2_object.extensions[glTF_extension_name] = self.Extension(
-        #         name = glTF_extension_name,
-        #         extension = mappings,
-        #         required = False
-        #     )
+        if bpy.types.Scene.hvym_collections_data.enabled:
+            if gltf2_object.extensions is None:
+                gltf2_object.extensions = {glTF_extension_name : None}
+            gltf2_object.extensions[glTF_extension_name] = self.Extension(
+                name = glTF_extension_name,
+                extension = mappings,
+                required = False
+            )
 
     def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
 
