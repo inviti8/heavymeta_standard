@@ -159,7 +159,9 @@ def updateNftData(context):
                                                                                 'minterName': context.scene.hvym_minter_name,
                                                                                 'minterDesc': context.scene.hvym_minter_description,
                                                                                 'minterImage': context.scene.hvym_minter_image,
-                                                                                'minterVersion': context.scene.hvym_minter_version
+                                                                                'minterVersion': context.scene.hvym_minter_version,
+                                                                                'contractABI': context.scene.hvym_contract_abi,
+                                                                                'contractAddress': context.scene.hvym_contract_address
                                                                                 }
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'collectionType': context.collection.hvym_collection_type,
@@ -271,6 +273,8 @@ PROPS = [
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
+    ('hvym_contract_abi', bpy.props.StringProperty(name='ABI', default='', description ="ABI for compiled contract.", update=onUpdate)),
+    ('hvym_contract_address', bpy.props.StringProperty(name='Address', default='', description ="The address for the contract.", update=onUpdate)),
     ('hvym_pinata_jwt', bpy.props.StringProperty(name='Pinata-JWT', default='', description ="JWT key for uploads.", update=onUpdate)),
     ('hvym_pinata_gateway', bpy.props.StringProperty(name='Pinata-Gateway', default='', description ="Pinata Gatway url.", update=onUpdate))
 ]
@@ -927,7 +931,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
             if prop_name == 'minter_version':
                 row = row.row()
                 row.enabled = context.scene.add_version
-            if prop_name != 'hvym_pinata_jwt' and prop_name != 'hvym_pinata_gateway':
+            if prop_name != 'hvym_pinata_jwt' and prop_name != 'hvym_pinata_gateway' and prop_name != 'hvym_contract_abi' and prop_name != 'hvym_contract_address':
                 row.prop(context.scene, prop_name)
         row = col.row()
         row.separator()
@@ -950,6 +954,13 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row.label(text="Deploy:")
         row = box.row()
         row.operator('hvym_deploy.confirm_dialog', text="Deploy", icon="URL")
+        box = col.box()
+        row = box.row()
+        row.label(text="Contract Info:")
+        for (prop_name, _) in PROPS:
+            if prop_name == 'hvym_contract_abi' or prop_name == 'hvym_contract_address':
+                row = box.row()
+                row.prop(context.scene, prop_name)
 
 
 # -------------------------------------------------------------------
@@ -1282,6 +1293,8 @@ def create_collections(gltf):
             bpy.context.scene.hvym_minter_description = ext_data[id]['minterDesc']
             bpy.context.scene.hvym_minter_image = ext_data[id]['minterImage']
             bpy.context.scene.hvym_minter_version = ext_data[id]['minterVersion']
+            bpy.context.scene.hvym_contract_abi = ext_data[id]['contractABI']
+            bpy.context.scene.hvym_contract_address = ext_data[id]['contractAddress']
 
             if bpy.context.scene.hvym_minter_version > 0:
                 bpy.context.scene.hvym_add_version = True
