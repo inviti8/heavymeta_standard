@@ -843,10 +843,10 @@ class HVYM_DeployMinter(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class HVYM_DeployConfirmDialog(bpy.types.Operator):
+class HVYM_DeployConfirmMinterDeployDialog(bpy.types.Operator):
     """Really?"""
-    bl_idname = "hvym_deploy.confirm_dialog"
-    bl_label = "Ready to deploy to ipfs?"
+    bl_idname = "hvym_deploy.confirm_minter_deploy_dialog"
+    bl_label = "Ready to deploy Minter?"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     @classmethod
@@ -856,6 +856,36 @@ class HVYM_DeployConfirmDialog(bpy.types.Operator):
     def execute(self, context):
         self.report({'INFO'}, "YES")
         bpy.ops.hvym_deploy.minter()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
+
+class HVYM_DeployNFT(bpy.types.Operator):
+    bl_idname = "hvym_deploy.nft"
+    bl_label = "Launch Deploy Minter UI"
+    bl_description ="Deploy NFT minter."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Deploy Minter")
+        bpy.ops.hvym_deploy.gltf('INVOKE_DEFAULT')
+        return {'FINISHED'}
+
+
+class HVYM_DeployConfirmNFTDeploytDialog(bpy.types.Operator):
+    """Really?"""
+    bl_idname = "hvym_deploy.confirm_nft_deploy_dialog"
+    bl_label = "Ready to deploy NFT?"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        self.report({'INFO'}, "YES")
+        bpy.ops.hvym_deploy.nft()
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -953,7 +983,9 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row.separator()
         row.label(text="Deploy:")
         row = box.row()
-        row.operator('hvym_deploy.confirm_dialog', text="Deploy", icon="URL")
+        row.operator('hvym_deploy.confirm_minter_deploy_dialog', text="Deploy Minter", icon="URL")
+        row = box.row()
+        row.operator('hvym_deploy.confirm_nft_deploy_dialog', text="Deploy NFT", icon="URL")
         box = col.box()
         row = box.row()
         row.label(text="Contract Info:")
@@ -1192,7 +1224,9 @@ blender_classes = [
     HVYM_DataOrder,
     HVYM_ExportHelper,
     HVYM_DeployMinter,
-    HVYM_DeployConfirmDialog,
+    HVYM_DeployConfirmMinterDeployDialog,
+    HVYM_DeployNFT,
+    HVYM_DeployConfirmNFTDeploytDialog,
     HVYM_DataPanel,
     HVYM_ScenePanel,
     HVYM_NFTDataExtensionProps,
