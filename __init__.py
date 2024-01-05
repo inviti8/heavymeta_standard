@@ -134,14 +134,19 @@ def updateNftData(context):
     for i in range(len(hvym_meta_data)):
         data={}
         data[hvym_meta_data[i].type] = hvym_meta_data[i].values
+        int_props = {'default': hvym_meta_data[i].int_default, 'min': hvym_meta_data[i].int_min, 'max': hvym_meta_data[i].int_max}
 
         if hvym_meta_data[i].trait_type == 'property':
+            data[hvym_meta_data[i].type] = int_props
             intProps.append(data)
         elif hvym_meta_data[i].trait_type == 'mesh':
+            data[hvym_meta_data[i].type] = hvym_meta_data[i].visible
             meshProps.append(data)
         elif hvym_meta_data[i].trait_type == 'morph':
+            data[hvym_meta_data[i].type] = int_props
             morphProps.append(data)
         elif hvym_meta_data[i].trait_type == 'anim':
+            data[hvym_meta_data[i].type] = hvym_meta_data[i].anim_loop
             animProps.append(data)
         elif hvym_meta_data[i].trait_type == 'material':
             materials.append(data)
@@ -309,9 +314,48 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    int_default: bpy.props.IntProperty(
+           name="Default",
+           description="Add default value.",
+           default=0,
+           update=onUpdate)
+
+    int_min: bpy.props.IntProperty(
+           name="Min",
+           description="Add minimum value.",
+           default=0,
+           update=onUpdate)
+
+    int_max: bpy.props.IntProperty(
+           name="Max",
+           description="Add maximum value.",
+           default=1,
+           update=onUpdate)
+
+    visible: bpy.props.BoolProperty(
+           name="Visible",
+           description="Object visiblility.",
+           default=True,
+           update=onUpdate)
+
+    anim_loop: bpy.props.EnumProperty(
+            name='Loop',
+            description ="Animation Looping.",
+            items=(('NONE', 'None', ""),
+                ('LoopOnce', 'Loop Once', ""),
+                ('LoopRepeat', 'Loop Forever', ""),
+                ('PingPongRepeat', 'Ping Pong', ""),),
+            update=onUpdate)
+
     note: bpy.props.StringProperty(
            name="Note",
            description="Add a note, (not exported).",
+           default="",
+           update=onUpdate)
+
+    test: bpy.props.StringProperty(
+           name="Test",
+           description="Add a test, (not exported).",
            default="",
            update=onUpdate)
 
@@ -333,6 +377,8 @@ class HVYM_UL_DataList(bpy.types.UIList):
             custom_icon = 'ACTION_TWEAK'
         elif item.trait_type == 'material':
             custom_icon = 'SHADING_RENDERED'
+        elif item.trait_type == 'toggle':
+            custom_icon = 'CHECKMARK'
 
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -348,7 +394,7 @@ class HVYM_UL_DataList(bpy.types.UIList):
 #    Heavymeta Operators
 # ------------------------------------------------------------------------
 class HVYM_LIST_NewPropItem(bpy.types.Operator):
-    """Add a new nft property item to the list."""
+    """Add a new integer property item to the list."""
 
     bl_idname = "hvym_meta_data.new_property_item"
     bl_label = "Add a new property item"
@@ -357,7 +403,10 @@ class HVYM_LIST_NewPropItem(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'property'
         item.type = '*'
-        item.values = '(0,0,1)'
+        item.values = ''
+        item.int_default = 0
+        item.int_min = 0
+        item.int_max = 1
         updateNftData(context)
 
         return{'FINISHED'}
@@ -408,7 +457,7 @@ class HVYM_LIST_NewAnimItem(bpy.types.Operator):
         return{'FINISHED'}
 
 class HVYM_LIST_NewMatItem(bpy.types.Operator):
-    """Add a new animation item to the list."""
+    """Add a new material item to the list."""
 
     bl_idname = "hvym_meta_data.new_mat_item"
     bl_label = "Add a new material item"
@@ -938,9 +987,19 @@ class HVYM_DataPanel(bpy.types.Panel):
 
             row = box.row()
             row.prop(item, "type")
-            row.prop(item, "values")
+            if item.trait_type == 'property' or item.trait_type == 'morph':
+                row.prop(item, "int_default")
+                row.prop(item, "int_min")
+                row.prop(item, "int_max")
+            elif item.trait_type == 'mesh':
+                row.prop(item, "visible")
+            elif item.trait_type == 'anim':
+                row.prop(item, "anim_loop")
+            else:
+                row.prop(item, "values")
             row = box.row()
             row.prop(item, "note")
+
 
 
 class HVYM_ScenePanel(bpy.types.Panel):
