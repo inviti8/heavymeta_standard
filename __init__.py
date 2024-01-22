@@ -308,6 +308,13 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    prop_value_type: bpy.props.EnumProperty(
+            name='Value Type',
+            description ="Set value type of property.",
+            items=(('Int', 'Integer', ""),
+                ('Float', 'Float', ""),),
+            update=onUpdate)
+
     values: bpy.props.StringProperty(
            name="Values",
            description="Add '(default, min, max)'",
@@ -330,6 +337,24 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
            name="Max",
            description="Add maximum value.",
            default=1,
+           update=onUpdate)
+
+    float_default: bpy.props.FloatProperty(
+           name="Default",
+           description="Add default value.",
+           default=0.0,
+           update=onUpdate)
+
+    float_min: bpy.props.FloatProperty(
+           name="Min",
+           description="Add minimum value.",
+           default=0.0,
+           update=onUpdate)
+
+    float_max: bpy.props.FloatProperty(
+           name="Max",
+           description="Add maximum value.",
+           default=1.0,
            update=onUpdate)
 
     visible: bpy.props.BoolProperty(
@@ -358,6 +383,39 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
            description="Add a test, (not exported).",
            default="",
            update=onUpdate)
+
+
+class HVYM_MATERIAL_UL_slots(bpy.types.UIList):
+    # The draw_item function is called for each item of the collection that is visible in the list.
+    #   data is the RNA object containing the collection,
+    #   item is the current drawn item of the collection,
+    #   icon is the "computed" icon for the item (as an integer, because some objects like materials or textures
+    #   have custom icons ID, which are not available as enum items).
+    #   active_data is the RNA object containing the active property for the collection (i.e. integer pointing to the
+    #   active item of the collection).
+    #   active_propname is the name of the active property (use 'getattr(active_data, active_propname)').
+    #   index is index of the current item in the collection.
+    #   flt_flag is the result of the filtering process for this item.
+    #   Note: as index and flt_flag are optional arguments, you do not have to use/declare them here if you don't
+    #         need them.
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        ob = data
+        slot = item
+        ma = slot.material
+        # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            # You should always start your row layout by a label (icon + text), or a non-embossed text field,
+            # this will also make the row easily selectable in the list! The later also enables ctrl-click rename.
+            # We use icon_value of label, as our given icon is an integer value, not an enum ID.
+            # Note "data" names should never be translated!
+            if ma:
+                layout.prop(ma, "name", text="", emboss=False, icon_value=icon)
+            else:
+                layout.label(text="", translate=False, icon_value=icon)
+        # 'GRID' layout type should be as compact as possible (typically a single icon!).
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
 
 
 class HVYM_UL_DataList(bpy.types.UIList):
@@ -987,10 +1045,21 @@ class HVYM_DataPanel(bpy.types.Panel):
 
             row = box.row()
             row.prop(item, "type")
-            if item.trait_type == 'property' or item.trait_type == 'morph':
-                row.prop(item, "int_default")
-                row.prop(item, "int_min")
-                row.prop(item, "int_max")
+            if item.trait_type == 'property':
+                row.prop(item, "prop_value_type")
+                row = box.row()
+                if item.prop_value_type == 'Int':
+                    row.prop(item, "int_default")
+                    row.prop(item, "int_min")
+                    row.prop(item, "int_max")
+                elif item.prop_value_type == 'Float':
+                    row.prop(item, "float_default")
+                    row.prop(item, "float_min")
+                    row.prop(item, "float_max")
+            elif item.trait_type == 'morph':
+                row.prop(item, "float_default")
+                row.prop(item, "float_min")
+                row.prop(item, "float_max")
             elif item.trait_type == 'mesh':
                 row.prop(item, "visible")
             elif item.trait_type == 'anim':
@@ -1266,6 +1335,7 @@ class HVYM_AddMaterial(bpy.types.Operator):
 # -------------------------------------------------------------------
 blender_classes = [
     HVYM_ListItem,
+    HVYM_MATERIAL_UL_slots,
     HVYM_UL_DataList,
     HVYM_LIST_NewPropItem,
     HVYM_LIST_NewMeshItem,
