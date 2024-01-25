@@ -48,6 +48,7 @@ from time import time
 import bpy
 import re
 import random
+import os
 from os import path
 from typing import Dict
 from bpy.app.handlers import persistent
@@ -55,6 +56,7 @@ from rna_prop_ui import PropertyPanel
 from bpy.types import (Panel,
                        BoolProperty,
                        StringProperty,
+                       FloatProperty,
                        EnumProperty,
                        CollectionProperty,
                        Collection,
@@ -62,8 +64,13 @@ from bpy.types import (Panel,
                        Header,
                        Menu,
                        PropertyGroup,
-                       UIList)
+                       UIList,
+                       Gizmo,
+                       GizmoGroup,)
+from bpy.props import (FloatVectorProperty)
 from bpy_extras.io_utils import ExportHelper
+
+preview_collections = {}
 
 glTF_extension_name = "HVYM_nft_data"
 
@@ -92,6 +99,138 @@ def patched_create_object(gltf, vnode_id):
         cleanup_scene_collection()
 
     return obj
+
+# -------------------------------------------------------------------
+#   Widget Elements
+# ------------------------------------------------------------------- 
+# Coordinates (each one is a triangle).
+custom_shape_verts = (
+    (3.0, 1.0, -1.0), (2.0, 2.0, -1.0), (3.0, 3.0, -1.0),
+    (1.0, 3.0, 1.0), (3.0, 3.0, -1.0), (1.0, 3.0, -1.0),
+    (3.0, 3.0, 1.0), (3.0, 1.0, -1.0), (3.0, 3.0, -1.0),
+    (2.0, 0.0, 1.0), (3.0, 1.0, -1.0), (3.0, 1.0, 1.0),
+    (2.0, 0.0, -1.0), (2.0, 2.0, 1.0), (2.0, 2.0, -1.0),
+    (2.0, 2.0, -1.0), (0.0, 2.0, 1.0), (0.0, 2.0, -1.0),
+    (1.0, 3.0, 1.0), (2.0, 2.0, 1.0), (3.0, 3.0, 1.0),
+    (0.0, 2.0, -1.0), (1.0, 3.0, 1.0), (1.0, 3.0, -1.0),
+    (2.0, 2.0, 1.0), (3.0, 1.0, 1.0), (3.0, 3.0, 1.0),
+    (2.0, 2.0, -1.0), (1.0, 3.0, -1.0), (3.0, 3.0, -1.0),
+    (-3.0, -1.0, -1.0), (-2.0, -2.0, -1.0), (-3.0, -3.0, -1.0),
+    (-1.0, -3.0, 1.0), (-3.0, -3.0, -1.0), (-1.0, -3.0, -1.0),
+    (-3.0, -3.0, 1.0), (-3.0, -1.0, -1.0), (-3.0, -3.0, -1.0),
+    (-2.0, 0.0, 1.0), (-3.0, -1.0, -1.0), (-3.0, -1.0, 1.0),
+    (-2.0, 0.0, -1.0), (-2.0, -2.0, 1.0), (-2.0, -2.0, -1.0),
+    (-2.0, -2.0, -1.0), (0.0, -2.0, 1.0), (0.0, -2.0, -1.0),
+    (-1.0, -3.0, 1.0), (-2.0, -2.0, 1.0), (-3.0, -3.0, 1.0),
+    (0.0, -2.0, -1.0), (-1.0, -3.0, 1.0), (-1.0, -3.0, -1.0),
+    (-2.0, -2.0, 1.0), (-3.0, -1.0, 1.0), (-3.0, -3.0, 1.0),
+    (-2.0, -2.0, -1.0), (-1.0, -3.0, -1.0), (-3.0, -3.0, -1.0),
+    (1.0, -1.0, 0.0), (-1.0, -1.0, 0.0), (0.0, 0.0, -5.0),
+    (-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (0.0, 0.0, 5.0),
+    (1.0, -1.0, 0.0), (1.0, 1.0, 0.0), (0.0, 0.0, 5.0),
+    (1.0, 1.0, 0.0), (-1.0, 1.0, 0.0), (0.0, 0.0, 5.0),
+    (-1.0, 1.0, 0.0), (-1.0, -1.0, 0.0), (0.0, 0.0, 5.0),
+    (-1.0, -1.0, 0.0), (-1.0, 1.0, 0.0), (0.0, 0.0, -5.0),
+    (-1.0, 1.0, 0.0), (1.0, 1.0, 0.0), (0.0, 0.0, -5.0),
+    (1.0, 1.0, 0.0), (1.0, -1.0, 0.0), (0.0, 0.0, -5.0),
+    (3.0, 1.0, -1.0), (2.0, 0.0, -1.0), (2.0, 2.0, -1.0),
+    (1.0, 3.0, 1.0), (3.0, 3.0, 1.0), (3.0, 3.0, -1.0),
+    (3.0, 3.0, 1.0), (3.0, 1.0, 1.0), (3.0, 1.0, -1.0),
+    (2.0, 0.0, 1.0), (2.0, 0.0, -1.0), (3.0, 1.0, -1.0),
+    (2.0, 0.0, -1.0), (2.0, 0.0, 1.0), (2.0, 2.0, 1.0),
+    (2.0, 2.0, -1.0), (2.0, 2.0, 1.0), (0.0, 2.0, 1.0),
+    (1.0, 3.0, 1.0), (0.0, 2.0, 1.0), (2.0, 2.0, 1.0),
+    (0.0, 2.0, -1.0), (0.0, 2.0, 1.0), (1.0, 3.0, 1.0),
+    (2.0, 2.0, 1.0), (2.0, 0.0, 1.0), (3.0, 1.0, 1.0),
+    (2.0, 2.0, -1.0), (0.0, 2.0, -1.0), (1.0, 3.0, -1.0),
+    (-3.0, -1.0, -1.0), (-2.0, 0.0, -1.0), (-2.0, -2.0, -1.0),
+    (-1.0, -3.0, 1.0), (-3.0, -3.0, 1.0), (-3.0, -3.0, -1.0),
+    (-3.0, -3.0, 1.0), (-3.0, -1.0, 1.0), (-3.0, -1.0, -1.0),
+    (-2.0, 0.0, 1.0), (-2.0, 0.0, -1.0), (-3.0, -1.0, -1.0),
+    (-2.0, 0.0, -1.0), (-2.0, 0.0, 1.0), (-2.0, -2.0, 1.0),
+    (-2.0, -2.0, -1.0), (-2.0, -2.0, 1.0), (0.0, -2.0, 1.0),
+    (-1.0, -3.0, 1.0), (0.0, -2.0, 1.0), (-2.0, -2.0, 1.0),
+    (0.0, -2.0, -1.0), (0.0, -2.0, 1.0), (-1.0, -3.0, 1.0),
+    (-2.0, -2.0, 1.0), (-2.0, 0.0, 1.0), (-3.0, -1.0, 1.0),
+    (-2.0, -2.0, -1.0), (0.0, -2.0, -1.0), (-1.0, -3.0, -1.0),
+)
+
+
+class HVYM_MenuTransform(Gizmo):
+    bl_idname = "VIEW3D_GT_hvym_menu_transform_widget"
+    bl_target_properties = (
+        {"id": "offset", "type": 'FLOAT', "array_length": 1},
+    )
+
+    __slots__ = (
+        "custom_shape",
+        "init_value",
+    )
+
+    def _update_offset_matrix(self):
+        # set mesh position
+        self.matrix_offset.col[3][2] = 0
+
+    def draw(self, context):
+        if self.use_draw_modal:
+            self._update_offset_matrix()
+            self.draw_custom_shape(self.custom_shape)
+
+    def draw_select(self, context, select_id):
+        self._update_offset_matrix()
+        self.draw_custom_shape(self.custom_shape, select_id=select_id)
+
+    def setup(self):
+        if not hasattr(self, "custom_shape"):
+            self.custom_shape = self.new_custom_shape('TRIS', custom_shape_verts)
+
+    def invoke(self, context, event):
+        return {'RUNNING_MODAL'}
+
+    def exit(self, context, cancel):
+        context.area.header_text_set(None)
+
+
+    def modal(self, context, event, tweak):
+        return {'RUNNING_MODAL'}
+
+
+class HVYM_MenuTransformGroup(GizmoGroup):
+    bl_idname = "OBJECT_GGT_hvym_menu_transform_grp"
+    bl_label = "HVYM Menu Transform Widget"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+    bl_options = {'3D', 'PERSISTENT'}
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        return (ob and ob.type == 'EMPTY')
+
+    def show_mesh(self, context):
+        self._gizmo.use_draw_modal = True
+
+    def setup(self, context):
+        # Assign the 'offset' target property to the light energy.
+        ob = context.object
+        gz = self.gizmos.new(HVYM_MenuTransform.bl_idname)
+
+        gz.color = 1.0, 0.5, 1.0
+        gz.alpha = 0.5
+
+        gz.color_highlight = 1.0, 1.0, 1.0
+        gz.alpha_highlight = 0.5
+
+        # units are large, so shrink to something more reasonable.
+        gz.scale_basis = 0.1
+        gz.use_draw_modal = False
+
+        self._gizmo = gz
+
+    def refresh(self, context):
+        ob = context.object
+        gz = self._gizmo
+        gz.matrix_basis = ob.matrix_world.normalized()
 
 
 
@@ -135,6 +274,8 @@ def updateNftData(context):
         data={}
         data[hvym_meta_data[i].type] = hvym_meta_data[i].values
         int_props = {'default': hvym_meta_data[i].int_default, 'min': hvym_meta_data[i].int_min, 'max': hvym_meta_data[i].int_max}
+        if hvym_meta_data[i].prop_value_type == 'Float':
+            int_props = {'default': hvym_meta_data[i].float_default, 'min': hvym_meta_data[i].float_min, 'max': hvym_meta_data[i].float_max}
 
         if hvym_meta_data[i].trait_type == 'property':
             data[hvym_meta_data[i].type] = int_props
@@ -183,6 +324,9 @@ def updateNftData(context):
 
 def onUpdate(self, context):
     updateNftData(context)
+    for region in context.area.regions:
+        if region.type == "UI":
+            region.tag_redraw()
 
 
 def setEnum(tup, set_enum, default_enum):
@@ -293,8 +437,54 @@ COL_PROPS = [
 ]
 
 
-class HVYM_ListItem(bpy.types.PropertyGroup):
-    """Group of properties representing an item in the list."""
+class HVYM_MenuDataItem(bpy.types.PropertyGroup):
+    """Group of properties representing per collection menu meta data."""
+
+    collection_id: bpy.props.StringProperty(
+           name="Collection ID",
+           description="Id of the collection this property group is linked to.",
+           default="",
+           update=onUpdate)
+
+    menu_name: bpy.props.StringProperty(
+           name="Menu Name",
+           description="Set name of the menu for collection.",
+           default="",
+           update=onUpdate)
+
+    menu_primary_color: bpy.props.FloatVectorProperty(
+           name="Menu Primry Color",
+           description="Set primary color.",
+           subtype = "COLOR",
+           default = (0.038,0.479,0.342,1.0),
+           min=0, 
+           max=100,
+           size = 4,
+           update=onUpdate)
+
+    menu_secondary_color: bpy.props.FloatVectorProperty(
+           name="Menu Secondary Color",
+           description="Set secondary color.",
+           subtype = "COLOR",
+           default = (0.325,0.501,0.379,1.0),
+           min=0, 
+           max=100,
+           size = 4,
+           update=onUpdate)
+
+    menu_text_color: bpy.props.FloatVectorProperty(
+           name="Menu Secondary Color",
+           description="Set text color.",
+           subtype = "COLOR",
+           default = (0.617,0.0082,0.159,1.0),
+           min=0, 
+           max=100,
+           size = 4,
+           update=onUpdate)
+
+
+class HVYM_DataItem(bpy.types.PropertyGroup):
+    """Group of properties representing various meta data."""
 
     trait_type: bpy.props.StringProperty(
            name="Type",
@@ -313,6 +503,14 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
             description ="Set value type of property.",
             items=(('Int', 'Integer', ""),
                 ('Float', 'Float', ""),),
+            update=onUpdate)
+
+    prop_slider_type: bpy.props.EnumProperty(
+            name='Widget Type',
+            description ="Set ui widget for property.",
+            items=(('TextBox', 'Text Box', ""),
+                ('Slider', 'Slider', ""),
+                ('Meter', 'Meter', ""),),
             update=onUpdate)
 
     values: bpy.props.StringProperty(
@@ -371,6 +569,42 @@ class HVYM_ListItem(bpy.types.PropertyGroup):
                 ('LoopRepeat', 'Loop Forever', ""),
                 ('PingPongRepeat', 'Ping Pong', ""),),
             update=onUpdate)
+
+    use_menu: bpy.props.BoolProperty(
+           name="Use Menu",
+           description="Enable to add data menu to exported model.",
+           default=False,
+           update=onUpdate)
+
+    menu_name: bpy.props.StringProperty(
+           name="Menu Name",
+           description="Set name of the menu for collection.",
+           default="",
+           update=onUpdate)
+
+    menu_primary_color: bpy.props.FloatVectorProperty(
+           name="Menu Primry Color",
+           description="Set primary color.",
+           subtype = "COLOR",
+           default = (1.0,1.0,1.0,1.0),
+           size = 4,
+           update=onUpdate)
+
+    menu_secondary_color: bpy.props.FloatVectorProperty(
+           name="Menu Secondary Color",
+           description="Set secondary color.",
+           subtype = "COLOR",
+           default = (1.0,1.0,1.0,1.0),
+           size = 4,
+           update=onUpdate)
+
+    menu_text_color: bpy.props.FloatVectorProperty(
+           name="Menu Secondary Color",
+           description="Set text color.",
+           subtype = "COLOR",
+           default = (1.0,1.0,1.0,1.0),
+           size = 4,
+           update=onUpdate)
 
     note: bpy.props.StringProperty(
            name="Note",
@@ -451,6 +685,45 @@ class HVYM_UL_DataList(bpy.types.UIList):
 # ------------------------------------------------------------------------
 #    Heavymeta Operators
 # ------------------------------------------------------------------------
+class HVYM_MENU_NewMenuTransform(bpy.types.Operator):
+    """Add a new Empty Transform, for menu properties associated with this collection."""
+
+    bl_idname = "hvym_menu_meta_data.new_menu_transform"
+    bl_label = "Add a new menu transform"
+
+    def execute(self, context):
+        setCollectionId(context.collection)
+        menu_data = context.scene.hvym_menu_meta_data
+        hvym_id = context.collection.hvym_id
+        name = 'menu_'+hvym_id
+        index = 0
+        transform = None
+        print(len(context.scene.hvym_menu_meta_data.keys()))
+
+        for obj in context.collection.all_objects:
+            if obj.hvym_menu_index >= 0:
+                transform = obj
+
+        if transform == None:
+            for data in menu_data:
+                if data.collection_id == hvym_id:
+                    menu_data.remove(index)
+                    break
+                index+=1
+                
+            data = context.scene.hvym_menu_meta_data.add()
+            data.collection_id = hvym_id
+            # data.menu_primary_color = (19.2,69.0,61.2,1.0)
+            # data.menu_secondary_color = (68.6,91.0,71.3,1.0)
+            # data.menu_text_color = (81.2,32.2,43.9,1.0)
+
+            bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+            context.active_object.name = name
+            context.active_object.hvym_menu_index = len(context.scene.hvym_menu_meta_data)-1
+            context.active_object.empty_display_size = 1
+
+        return{'FINISHED'}
+
 class HVYM_LIST_NewPropItem(bpy.types.Operator):
     """Add a new integer property item to the list."""
 
@@ -687,9 +960,11 @@ class HVYM_DataOrder(bpy.types.Operator):
         for arr in allProps:
             for item in arr:
                 new_item = bpy.context.collection.hvym_meta_data.add()
-                new_item.trait_type = item['trait_type']
-                new_item.type = item['type']
-                new_item.values = item['values']
+                for key in new_item.keys():
+                    new_item[key] = item[key]
+                # new_item.trait_type = item['trait_type']
+                # new_item.type = item['type']
+                # new_item.values = item['values']
                 
 
         return {'FINISHED'}
@@ -999,6 +1274,55 @@ class HVYM_DeployConfirmNFTDeploytDialog(bpy.types.Operator):
         return context.window_manager.invoke_confirm(self, event)
 
 
+class HVYM_Menu_Transform_Panel(bpy.types.Panel):
+    """
+    Panel for empty transform, used to define menu, and menu position for 
+    a given collection. There should be only asingle menu tranform, per 
+    collection, as the created menu uses HVYM collection data.
+    """
+    bl_label = "Heavymeta Menu Properties"
+    bl_idname = "HVYM_MENU_TRANSFORM_layout"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "collection"
+
+    @classmethod
+    def poll(cls, context):
+        ob = bpy.context.active_object
+        return (ob is not None and ob.type == 'EMPTY')
+
+    def draw_header(self, context):
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        pcoll = preview_collections["main"]
+        logo = pcoll["logo"]
+        row.label(text="", icon_value=logo.icon_id)
+
+    def draw(self, context):
+        layout = self.layout
+        hvym_id = context.collection.hvym_id
+        obj = context.active_object
+        ctx = context.collection
+        scn = context.scene
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        if scn.hvym_menu_meta_data and obj.hvym_menu_index != None:
+            item = scn.hvym_menu_meta_data[obj.hvym_menu_index]
+            row.prop(item, "menu_name")
+            box = col.row()
+            row = box.row()
+            row.prop(item, "menu_primary_color")
+            box = col.row()
+            row = box.row()
+            row.prop(item, "menu_secondary_color")
+            box = col.row()
+            row = box.row()
+            row.prop(item, "menu_text_color")
+
+            
+
 class HVYM_DataPanel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "Heavymeta Standard"
@@ -1006,6 +1330,14 @@ class HVYM_DataPanel(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "collection"
+
+    def draw_header(self, context):
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        pcoll = preview_collections["main"]
+        logo = pcoll["logo"]
+        row.label(text="", icon_value=logo.icon_id)
 
     def draw(self, context):
         col = self.layout.column()
@@ -1045,8 +1377,10 @@ class HVYM_DataPanel(bpy.types.Panel):
 
             row = box.row()
             row.prop(item, "type")
+            row = box.row()
             if item.trait_type == 'property':
                 row.prop(item, "prop_value_type")
+                row.prop(item, "prop_slider_type")
                 row = box.row()
                 if item.prop_value_type == 'Int':
                     row.prop(item, "int_default")
@@ -1068,6 +1402,11 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row.prop(item, "values")
             row = box.row()
             row.prop(item, "note")
+        box = col.box()
+        row = box.row()
+        name = 'menu_'+ctx.hvym_id
+        row.enabled = (bpy.data.objects.get(name) == None)
+        row.operator('hvym_menu_meta_data.new_menu_transform', text='Add Menu Transform', icon='OBJECT_ORIGIN')
 
 
 
@@ -1078,6 +1417,14 @@ class HVYM_ScenePanel(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "scene"
+
+    def draw_header(self, context):
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        pcoll = preview_collections["main"]
+        logo = pcoll["logo"]
+        row.label(text="", icon_value=logo.icon_id)
 
     def draw(self, context):
         col = self.layout.column()
@@ -1130,6 +1477,7 @@ class HVYM_NFTDataExtensionProps(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(name="enabled", default=True)
     nftData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
     colData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
+    menuData: bpy.props.PointerProperty(type=bpy.types.PropertyGroup)
 
 
 # -------------------------------------------------------------------
@@ -1158,6 +1506,11 @@ class HVYMGLTF_PT_export_user_extensions(bpy.types.Panel):
     def draw(self, context):
         self.layout.label(text="test")
         pass
+
+def dump_obj(obj):
+   for attr in dir(obj):
+       if hasattr( obj, attr ):
+           print( "obj.%s = %s" % (attr, getattr(obj, attr)))
 
 def dump(obj, text):
     print('-'*40, text, '-'*40)
@@ -1334,9 +1687,13 @@ class HVYM_AddMaterial(bpy.types.Operator):
 #   Class Registration
 # -------------------------------------------------------------------
 blender_classes = [
-    HVYM_ListItem,
+    HVYM_MenuTransform,
+    HVYM_MenuTransformGroup,
+    HVYM_MenuDataItem,
+    HVYM_DataItem,
     HVYM_MATERIAL_UL_slots,
     HVYM_UL_DataList,
+    HVYM_MENU_NewMenuTransform,
     HVYM_LIST_NewPropItem,
     HVYM_LIST_NewMeshItem,
     HVYM_LIST_NewMorphItem,
@@ -1356,6 +1713,7 @@ blender_classes = [
     HVYM_DeployConfirmMinterDeployDialog,
     HVYM_DeployNFT,
     HVYM_DeployConfirmNFTDeploytDialog,
+    HVYM_Menu_Transform_Panel,
     HVYM_DataPanel,
     HVYM_ScenePanel,
     HVYM_NFTDataExtensionProps,
@@ -1370,6 +1728,20 @@ blender_classes = [
 
 
 def register():
+    # Note that preview collections returned by bpy.utils.previews
+    # are regular py objects - you can use them to store custom data.
+    import bpy.utils.previews
+    pcoll = bpy.utils.previews.new()
+
+    # path to the folder where the icon is
+    # the path is calculated relative to this py file inside the addon folder
+    icons_dir = os.path.join(os.path.dirname(__file__), "icons")
+
+    # load a preview thumbnail of a file and store in the previews collection
+    pcoll.load("logo", os.path.join(icons_dir, "hvym_logo_128.png"), 'IMAGE')
+
+    preview_collections["main"] = pcoll
+
     BlenderNode.create_object = patched_create_object
 
     for (prop_name, prop_value) in PROPS:
@@ -1382,8 +1754,10 @@ def register():
         bpy.utils.register_class(blender_class)
     
     bpy.types.Scene.hvym_collections_data = bpy.props.PointerProperty(type=HVYM_NFTDataExtensionProps)
-    bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_ListItem)
-    bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for hvym_meta_data", default = 0)
+    bpy.types.Scene.hvym_menu_meta_data = bpy.props.CollectionProperty(type = HVYM_MenuDataItem)
+    bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_DataItem)
+    bpy.types.Object.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
+    bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data", default = 0)
     bpy.types.Collection.hvym_nft_type_enum = bpy.props.StringProperty(name = "Used to set nft type enum on import", default='HVYC')
     bpy.types.Collection.hvym_col_type_enum = bpy.props.StringProperty(name = "Used to set collection type enum on import", default='multi')
     bpy.types.Collection.hvym_minter_type_enum = bpy.props.StringProperty(name = "Used to set minter type enum on import", default='payable')
@@ -1399,8 +1773,14 @@ def register():
 
 
 def unregister():
+    for pcoll in preview_collections.values():
+        bpy.utils.previews.remove(pcoll)
+    preview_collections.clear()
+
     del bpy.types.Scene.hvym_collections_data
+    del bpy.types.Scene.hvym_menu_meta_data
     del bpy.types.Collection.hvym_meta_data
+    del bpy.types.Object.hvym_menu_index
     del bpy.types.Collection.hvym_list_index
     del bpy.types.Collection.hvym_nft_type_enum
     del bpy.types.Collection.hvym_col_type_enum
