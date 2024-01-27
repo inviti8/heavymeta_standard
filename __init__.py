@@ -1119,7 +1119,6 @@ class HVYM_MENU_NewMenuTransform(bpy.types.Operator):
                 index+=1
 
             if data_updated:
-                #index = 0
                 for col in bpy.data.collections:
                     if len(col.objects) > 0:
                         for obj in col.objects:
@@ -1696,7 +1695,7 @@ class HVYM_Menu_Transform_Panel(bpy.types.Panel):
     collection, as the created menu uses HVYM collection data.
     """
     bl_label = "Heavymeta Standard Menu Properties"
-    bl_idname = "HVYM_MENU_TRANSFORM_layout"
+    bl_idname = "COLLECTION_PT_heavymeta_standard_transform"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "collection"
@@ -1964,24 +1963,42 @@ class TestOp(bpy.types.Operator):
 # -------------------------------------------------------------------
 #   Panel Right Click operators
 # ------------------------------------------------------------------- 
+def panel_types():
+    basetype = bpy.types.Panel
+    for typename in dir(bpy.types):
+        btype = getattr(bpy.types, typename)
+        if issubclass(btype, basetype):
+            yield btype
+
+def panels_by_label(label):
+    for ptype in panel_types():
+        if getattr(ptype.bl_rna, "bl_label", None) == label:
+            yield ptype
+
 def btn_menu_func(self, context):
     layout = self.layout
     # layout.separator()
     # layout.operator(TestOp.bl_idname)
     layout.separator()
-    layout.operator(HVYM_AddMorph.bl_idname)
+    pcoll = preview_collections["main"]
+    logo = pcoll["logo"]
+    layout.operator(HVYM_AddMorph.bl_idname, icon_value=logo.icon_id)
 
 def outliner_menu_func(self, context):
     layout = self.layout
     layout.separator()
-    layout.operator(HVYM_AddModel.bl_idname)
+    pcoll = preview_collections["main"]
+    logo = pcoll["logo"]
+    layout.operator(HVYM_AddModel.bl_idname, icon_value=logo.icon_id)
     layout.separator()
-    layout.operator(HVYM_AddMaterial.bl_idname)
+    layout.operator(HVYM_AddMaterial.bl_idname, icon_value=logo.icon_id)
 
 def nla_menu_func(self, context):
     layout = self.layout
     layout.separator()
-    layout.operator(HVYM_AddAnim.bl_idname)
+    pcoll = preview_collections["main"]
+    logo = pcoll["logo"]
+    layout.operator(HVYM_AddAnim.bl_idname, icon_value=logo.icon_id)
 
 def has_hvym_data(trait_type, type_str):
         result = False
@@ -1992,26 +2009,22 @@ def has_hvym_data(trait_type, type_str):
 
         return result
 
-# This class has to be exactly named like that to insert an entry in the right click menu
-class WM_MT_button_context(Menu):
-    bl_label = "Add Viddyoze Tag"
-
-    def draw(self, context):
-        pass
 
 class HVYM_AddMorph(bpy.types.Operator):
     """Add this morph to the Heavymeta Data list."""
     bl_idname = "hvym_add.morph"
-    bl_label = "[HVYM]:Add Morph Data"
+    bl_label = "Add Morph Data"
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None
+        if context.space_data.context == 'DATA':
+            if context.active_object is not None:
+                return True
 
     def execute(self, context):
+        print(context.space_data.context)
         if hasattr(context, 'button_pointer'):
             btn = context.button_pointer
-            print(btn.active_shape_key.name)
             if has_hvym_data('morph', btn.active_shape_key.name) == False:
                 item = context.collection.hvym_meta_data.add()
                 item.trait_type = 'morph'
@@ -2027,11 +2040,13 @@ class HVYM_AddMorph(bpy.types.Operator):
 class HVYM_AddModel(bpy.types.Operator):
     """Add a model to the Heavymeta Data list."""
     bl_idname = "hvym_add.model"
-    bl_label = "[HVYM]:Add Model Data"
+    bl_label = "Add Model Data"
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Object'
+        if isinstance(context.space_data, bpy.types.SpaceOutliner):
+            if context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Object':
+                return True
 
     def execute(self, context):
         if bpy.context.selected_objects[0] != None:
@@ -2051,7 +2066,7 @@ class HVYM_AddModel(bpy.types.Operator):
 class HVYM_AddAnim(bpy.types.Operator):
     """Add a NLA animation to the Heavymeta Data list."""
     bl_idname = "hvym_add.anim"
-    bl_label = "[HVYM]:Add Animation Data"
+    bl_label = "Add Animation Data"
 
     @classmethod
     def poll(cls, context):
@@ -2079,11 +2094,13 @@ class HVYM_AddAnim(bpy.types.Operator):
 class HVYM_AddMaterial(bpy.types.Operator):
     """Add a material to the Heavymeta Data list."""
     bl_idname = "hvym_add.material"
-    bl_label = "[HVYM]:Add Material Data"
+    bl_label = "Add Material Data"
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Material'
+        if isinstance(context.space_data, bpy.types.SpaceOutliner):
+            if context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Material':
+                return True
 
     def execute(self, context):
         matName  = context.selected_ids[0].name
