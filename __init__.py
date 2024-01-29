@@ -48,12 +48,14 @@ from time import time
 import bpy
 import re
 import random
+import math
 import os
 from os import path
 from typing import Dict
 from bpy.app.handlers import persistent
 from rna_prop_ui import PropertyPanel
 from bpy.types import (Panel,
+                       PointerProperty,
                        BoolProperty,
                        StringProperty,
                        FloatProperty,
@@ -644,6 +646,28 @@ def random_id(length = 8):
     text += str(hex(int(time())))[2:][-tlength:].rjust(tlength, '0')[::-1]
     return text
 
+def linear_to_srgb8(c):
+    if c < 0.0031308:
+        srgb = 0.0 if c < 0.0 else c * 12.92
+    else:
+        srgb = 1.055 * math.pow(c, 1.0 / 2.4) - 0.055
+        
+    if srgb > 1: srgb = 1
+
+    return round(255*srgb)
+
+
+def Hex(r, g, b):
+    return "#"+"%02x%02x%02x" % (
+        linear_to_srgb8(r),
+        linear_to_srgb8(g),
+        linear_to_srgb8(b),
+    )
+
+def color_to_hex(color):
+    return Hex(color[0], color[1], color[2])
+
+
 def setCollectionId(collection):
     if collection.hvym_id == '':
         collection.hvym_id = random_id()
@@ -663,6 +687,7 @@ def updateNftData(context):
     animProps = []
     materials = []
     nodes = []
+    menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None}
 
     for i in range(len(hvym_meta_data)):
         data={}
@@ -689,6 +714,17 @@ def updateNftData(context):
     for obj in context.collection.objects:
         nodes.append(obj.name)
         obj.hvym_id = context.collection.hvym_id
+
+    for i in range(len(context.scene.hvym_menu_meta_data)):
+        data = context.scene.hvym_menu_meta_data[i]
+        dump_obj(data)
+        col_id = data['collection_id']
+        if col_id == context.collection.hvym_id:
+            menu_data['name'] = data.menu_name
+            menu_data['primary_color'] = color_to_hex(data.menu_primary_color)
+            menu_data['secondary_color'] = color_to_hex(data.menu_secondary_color)
+            menu_data['text_color'] = color_to_hex(data.menu_text_color)
+            print(menu_data)
         
 
     context.scene.hvym_collections_data.nftData['contract'] =                   {'nftType': context.scene.hvym_nft_type,
@@ -711,6 +747,7 @@ def updateNftData(context):
                                                                                 'animProps': animProps,
                                                                                 'materials': materials,
                                                                                 "collection_name": context.collection.name,
+                                                                                "menu_data": menu_data,
                                                                                 "nodes": nodes
                                                                                 }
     
@@ -971,6 +1008,26 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
                 ('PingPongRepeat', 'Ping Pong', ""),),
             update=onUpdate)
 
+    mat_type: bpy.props.EnumProperty(
+            name='Material Type',
+            description ="Animation Looping.",
+            items=(('STANDARD', 'Standard', ""),
+                ('PBR', 'PBR', ""),
+                ('Toon', 'Toon', ""),),
+            update=onUpdate)
+
+    model_ref: bpy.props.PointerProperty(
+        name="Model Reference",
+        type=bpy.types.Object)
+
+    mat_ref: bpy.props.PointerProperty(
+        name="Material Reference",
+        type=bpy.types.Material)
+
+    morph_ref: bpy.props.PointerProperty(
+        name="Morph Reference",
+        type=bpy.types.Key)
+
     use_menu: bpy.props.BoolProperty(
            name="Use Menu",
            description="Enable to add data menu to exported model.",
@@ -1018,39 +1075,6 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            description="Add a test, (not exported).",
            default="",
            update=onUpdate)
-
-
-class HVYM_MATERIAL_UL_slots(bpy.types.UIList):
-    # The draw_item function is called for each item of the collection that is visible in the list.
-    #   data is the RNA object containing the collection,
-    #   item is the current drawn item of the collection,
-    #   icon is the "computed" icon for the item (as an integer, because some objects like materials or textures
-    #   have custom icons ID, which are not available as enum items).
-    #   active_data is the RNA object containing the active property for the collection (i.e. integer pointing to the
-    #   active item of the collection).
-    #   active_propname is the name of the active property (use 'getattr(active_data, active_propname)').
-    #   index is index of the current item in the collection.
-    #   flt_flag is the result of the filtering process for this item.
-    #   Note: as index and flt_flag are optional arguments, you do not have to use/declare them here if you don't
-    #         need them.
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
-        ob = data
-        slot = item
-        ma = slot.material
-        # draw_item must handle the three layout types... Usually 'DEFAULT' and 'COMPACT' can share the same code.
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            # You should always start your row layout by a label (icon + text), or a non-embossed text field,
-            # this will also make the row easily selectable in the list! The later also enables ctrl-click rename.
-            # We use icon_value of label, as our given icon is an integer value, not an enum ID.
-            # Note "data" names should never be translated!
-            if ma:
-                layout.prop(ma, "name", text="", emboss=False, icon_value=icon)
-            else:
-                layout.label(text="", translate=False, icon_value=icon)
-        # 'GRID' layout type should be as compact as possible (typically a single icon!).
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
-            layout.label(text="", icon_value=icon)
 
 
 class HVYM_UL_DataList(bpy.types.UIList):
@@ -1126,6 +1150,7 @@ class HVYM_MENU_NewMenuTransform(bpy.types.Operator):
                                 obj.hvym_menu_index -=1
                 
             data = context.scene.hvym_menu_meta_data.add()
+            data.menu_name = context.collection.name + ' Menu'
             data.collection_id = hvym_id
             data.menu_index = len(context.scene.hvym_menu_meta_data)-1
 
@@ -1139,7 +1164,7 @@ class HVYM_MENU_NewMenuTransform(bpy.types.Operator):
         return{'FINISHED'}
 
 class HVYM_LIST_NewPropItem(bpy.types.Operator):
-    """Add a new integer property item to the list."""
+    """Add a new numeric property item to the list."""
 
     bl_idname = "hvym_meta_data.new_property_item"
     bl_label = "Add a new property item"
@@ -1197,6 +1222,7 @@ class HVYM_LIST_NewAnimItem(bpy.types.Operator):
         item.trait_type = 'anim'
         item.type = '*'
         item.values = 'N/A'
+        item.material_ref = context.active_object
         updateNftData(context)
 
         return{'FINISHED'}
@@ -1211,6 +1237,7 @@ class HVYM_LIST_NewMatItem(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'material'
         item.values = 'N/A'
+
         updateNftData(context)
 
         return{'FINISHED'}
@@ -1812,9 +1839,13 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row.prop(item, "float_min")
                 row.prop(item, "float_max")
             elif item.trait_type == 'mesh':
+                row.prop(item, "model_ref")
                 row.prop(item, "visible")
             elif item.trait_type == 'anim':
                 row.prop(item, "anim_loop")
+            elif item.trait_type == 'material':
+                row.prop(item, "mat_ref")
+                row.prop(item, "mat_type")
             else:
                 row.prop(item, "values")
             row = box.row()
@@ -1918,10 +1949,11 @@ class HVYMGLTF_PT_export_user_extensions(bpy.types.Panel):
 
     def draw_header(self, context):
         props = context.scene.hvym_collections_data
-        self.layout.prop(props, 'enabled', text="")
+        pcoll = preview_collections["main"]
+        logo = pcoll["logo"]
+        self.layout.prop(props, 'enabled', text="", icon_value=logo.icon_id)
 
     def draw(self, context):
-        self.layout.label(text="test")
         pass
 
 def dump_obj(obj):
@@ -1963,6 +1995,35 @@ class TestOp(bpy.types.Operator):
 # -------------------------------------------------------------------
 #   Panel Right Click operators
 # ------------------------------------------------------------------- 
+class WM_OT_button_context_test(bpy.types.Operator):
+    """Right click entry test"""
+    bl_idname = "wm.button_context_test"
+    bl_label = "Run Context Test"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        value = getattr(context, "button_pointer", None)
+        if value is not None:
+            dump(value, "button_pointer")
+
+        value = getattr(context, "button_prop", None)
+        if value is not None:
+            dump(value, "button_prop")
+
+        value = getattr(context, "button_operator", None)
+        if value is not None:
+            dump(value, "button_operator")
+
+        return {'FINISHED'}
+
+def draw_menu(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.operator(WM_OT_button_context_test.bl_idname)
+
 def panel_types():
     basetype = bpy.types.Panel
     for typename in dir(bpy.types):
@@ -2044,7 +2105,7 @@ class HVYM_AddModel(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if isinstance(context.space_data, bpy.types.SpaceOutliner):
+        if isinstance(context.space_data, bpy.types.SpaceOutliner) and context.active_object.type == 'MESH':
             if context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Object':
                 return True
 
@@ -2057,6 +2118,7 @@ class HVYM_AddModel(bpy.types.Operator):
                 item.trait_type = 'mesh'
                 item.type = obj.name
                 item.values = 'visible'
+                item.model_ref = context.active_object
             else:
                 print("Item already exists in data.")
     
@@ -2110,6 +2172,7 @@ class HVYM_AddMaterial(bpy.types.Operator):
                 item.trait_type = 'material'
                 item.type = matName
                 item.values = 'N/A'
+                item.mat_ref = bpy.data.materials[context.selected_ids[0].bl_rna.name]
             else:
                 print("Item already exists in data.")
     
@@ -2154,7 +2217,7 @@ blender_classes = [
     HVYM_NFTDataExtensionProps,
     HVYMGLTF_PT_export_user_extensions,
     TestOp,
-    WM_MT_button_context,
+    WM_OT_button_context_test,
     HVYM_AddMorph,
     HVYM_AddModel,
     HVYM_AddAnim,
@@ -2197,9 +2260,9 @@ def register():
     bpy.types.Collection.hvym_nft_type_enum = bpy.props.StringProperty(name = "Used to set nft type enum on import", default='HVYC')
     bpy.types.Collection.hvym_col_type_enum = bpy.props.StringProperty(name = "Used to set collection type enum on import", default='multi')
     bpy.types.Collection.hvym_minter_type_enum = bpy.props.StringProperty(name = "Used to set minter type enum on import", default='payable')
-    bpy.types.WM_MT_button_context.append(btn_menu_func)
     bpy.types.OUTLINER_MT_asset.append(outliner_menu_func)
     bpy.types.NLA_MT_channel_context_menu.append(nla_menu_func)
+    bpy.types.UI_MT_button_context_menu.append(btn_menu_func)
 
     if not hasattr(bpy.types.Collection, 'hvym_id'):
         bpy.types.Collection.hvym_id = bpy.props.StringProperty(default = '')
@@ -2223,9 +2286,9 @@ def unregister():
     del bpy.types.Collection.hvym_nft_type_enum
     del bpy.types.Collection.hvym_col_type_enum
     del bpy.types.Collection.hvym_minter_type_enum
-    bpy.types.WM_MT_button_context.remove(btn_menu_func)
     bpy.types.OUTLINER_MT_asset.remove(outliner_menu_func)
     bpy.types.NLA_MT_channel_context_menu.remove(nla_menu_func)
+    bpy.types.UI_MT_button_context_menu.remove(btn_menu_func)
 
     if hasattr(bpy.types.Collection, 'hvym_id'):
         del bpy.types.Collection.hvym_id
