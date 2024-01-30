@@ -683,9 +683,11 @@ def updateNftData(context):
     setCollectionId(context.collection)
     intProps = []
     meshProps = []
+    meshSets = {}
     morphProps = []
     animProps = []
     materials = []
+    materialSets = {}
     nodes = []
     menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None}
 
@@ -698,6 +700,7 @@ def updateNftData(context):
             'max': hvym_meta_data[i].int_max,
             'prop_slider_type': hvym_meta_data[i].prop_slider_type
             }
+
         if hvym_meta_data[i].prop_value_type == 'Float':
             int_props = {
                 'default': hvym_meta_data[i].float_default, 
@@ -709,27 +712,49 @@ def updateNftData(context):
         if hvym_meta_data[i].trait_type == 'property':
             data[hvym_meta_data[i].type] = int_props
             intProps.append(data)
+
         elif hvym_meta_data[i].trait_type == 'mesh':
-            mesh_data = {
-                        'name': hvym_meta_data[i].model_ref.name,
-                        'type': hvym_meta_data[i].type, 
-                        'visible': hvym_meta_data[i].visible
-                        }
+            if hvym_meta_data[i].model_ref != None:
+                mesh_data = {
+                            'name': hvym_meta_data[i].model_ref.name,
+                            'type': hvym_meta_data[i].type, 
+                            'visible': hvym_meta_data[i].visible
+                            }
+                data[hvym_meta_data[i].type] = mesh_data
+                meshProps.append(data)
+
+        elif hvym_meta_data[i].trait_type == 'mesh_set':
+            mesh_data = []
+            for m in hvym_meta_data[i].mesh_set:
+                if m.model_ref != None:
+                    mesh_data.append(m.model_ref)
             data[hvym_meta_data[i].type] = mesh_data
-            meshProps.append(data)
+            meshSets[hvym_meta_data[i].type] = mesh_data
+
         elif hvym_meta_data[i].trait_type == 'morph':
             data[hvym_meta_data[i].type] = int_props
             morphProps.append(data)
+
         elif hvym_meta_data[i].trait_type == 'anim':
             data[hvym_meta_data[i].type] = hvym_meta_data[i].anim_loop
             animProps.append(data)
+
         elif hvym_meta_data[i].trait_type == 'material':
-            mat_data = {
-                        'name': hvym_meta_data[i].mat_ref.name,
-                        'type': hvym_meta_data[i].mat_type
-                        }
+            if hvym_meta_data[i].mat_ref != None:
+                mat_data = {
+                            'name': hvym_meta_data[i].mat_ref.name,
+                            'type': hvym_meta_data[i].mat_type
+                            }
+                data[hvym_meta_data[i].type] = mat_data
+                materials.append(data)
+
+        elif hvym_meta_data[i].trait_type == 'mat_set':
+            mat_data = []
+            for m in hvym_meta_data[i].mat_set:
+                if m.material_ref != None:
+                    mat_data.append(m.material_ref)
             data[hvym_meta_data[i].type] = mat_data
-            materials.append(data)
+            materialSets[hvym_meta_data[i].type] = mat_data
 
     for obj in context.collection.objects:
         nodes.append(obj.name)
@@ -743,7 +768,6 @@ def updateNftData(context):
             menu_data['primary_color'] = color_to_hex(data.menu_primary_color)
             menu_data['secondary_color'] = color_to_hex(data.menu_secondary_color)
             menu_data['text_color'] = color_to_hex(data.menu_text_color)
-            print(menu_data)
         
 
     context.scene.hvym_collections_data.nftData['contract'] =                   {'nftType': context.scene.hvym_nft_type,
@@ -762,9 +786,11 @@ def updateNftData(context):
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'collectionType': context.collection.hvym_collection_type,
                                                                                 'intProps': intProps,
                                                                                 'meshProps': meshProps,
+                                                                                'meshSets': meshSets,
                                                                                 'morphProps': morphProps,
                                                                                 'animProps': animProps,
                                                                                 'materials': materials,
+                                                                                'materialSets': materialSets,
                                                                                 "collection_name": context.collection.name,
                                                                                 "menu_data": menu_data,
                                                                                 "nodes": nodes
@@ -1434,8 +1460,27 @@ class HVYM_LIST_NewMatSetItem(bpy.types.Operator):
 
         return{'FINISHED'}
 
+class HVYM_LIST_NewMatSetMaterial(bpy.types.Operator):
+    """Add a new material to the set."""
+
+    bl_idname = "hvym_meta_data.new_mat_set_material"
+    bl_label = "Add a new material set material"
+
+    def execute(self, context):
+        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if item.trait_type != 'mat_set':
+            return
+
+        mat_item = item.mat_set.add()
+        mat = bpy.data.materials.new(name='Material'+str(len(bpy.data.materials)-1))  # Create a material.
+        mat_item.material_ref = mat
+
+        updateNftData(context)
+
+        return{'FINISHED'}
+
 class HVYM_LIST_DeleteMatSetItem(bpy.types.Operator):
-    """Delete a material from the set."""
+    """Delete a material slot from the set. Material is not deleted"""
 
     bl_idname = "hvym_meta_data.delete_mat_set_item"
     bl_label = "Delete a material set item"
@@ -1446,6 +1491,32 @@ class HVYM_LIST_DeleteMatSetItem(bpy.types.Operator):
             return
 
         index = item.mat_set_index
+
+        item.mat_set.remove(index)
+        item.mat_set_index = min(max(0, index - 1), len(item.mat_set) - 1)
+
+        updateNftData(context)
+
+        return{'FINISHED'}
+
+
+class HVYM_LIST_DeleteMatSetMaterial(bpy.types.Operator):
+    """Delete a material slot and material from the set."""
+
+    bl_idname = "hvym_meta_data.delete_mat_set_material"
+    bl_label = "Delete a material set item"
+
+    def execute(self, context):
+        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if item.trait_type != 'mat_set':
+            return
+
+        index = item.mat_set_index
+        if item.mat_ref != None:
+            mat_dict = {mat.name: i for i, mat in enumerate(bpy.data.materials)}
+            mat_idx = mat_dict[item.mat_ref.name]
+            bpy.context.object.active_material_index = mat_idx
+            bpy.ops.object.material_slot_remove()
 
         item.mat_set.remove(index)
         item.mat_set_index = min(max(0, index - 1), len(item.mat_set) - 1)
@@ -2003,12 +2074,12 @@ class HVYM_DataPanel(bpy.types.Panel):
         row = box.row()
         row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
         ctx = context.collection
-        for (prop_name, _) in COL_PROPS:
-            row = col.row()
-            if prop_name == 'minter_version':
-                row = row.row()
-                row.enabled = ctx.add_version
-            row.prop(ctx, prop_name)
+        # for (prop_name, _) in COL_PROPS:
+        #     row = col.row()
+        #     if prop_name == 'minter_version':
+        #         row = row.row()
+        #         row.enabled = ctx.add_version
+        #     row.prop(ctx, prop_name)
         row.separator()
         box = col.box()
         row = box.row()
@@ -2069,8 +2140,10 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row.prop(item, "mat_ref")
                 row.prop(item, "mat_type")
             elif item.trait_type == 'mat_set':
-                row.operator('hvym_meta_data.new_mat_set_item', text='', icon='ADD')
-                row.operator('hvym_meta_data.delete_mat_set_item', text='', icon='REMOVE')
+                row.operator('hvym_meta_data.new_mat_set_material', text='+', icon='MATERIAL')
+                row.operator('hvym_meta_data.delete_mat_set_material', text='-', icon='CANCEL')
+                row.operator('hvym_meta_data.new_mat_set_item', text='Slot', icon='ADD')
+                row.operator('hvym_meta_data.delete_mat_set_item', text='Slot', icon='REMOVE')
                 row = box.row()
                 row.template_list("HVYM_UL_MaterialSetList", "", item,
                           "mat_set", item, "mat_set_index")
@@ -2433,7 +2506,9 @@ blender_classes = [
     HVYM_LIST_NewMatItem,
     HVYM_LIST_NewMatSet,
     HVYM_LIST_NewMatSetItem,
+    HVYM_LIST_NewMatSetMaterial,
     HVYM_LIST_DeleteMatSetItem,
+    HVYM_LIST_DeleteMatSetMaterial,
     HVYM_LIST_DeleteItem,
     HVYM_LIST_MoveItem,
     HVYM_LIST_DirectionUp,
