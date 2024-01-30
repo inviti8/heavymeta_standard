@@ -985,20 +985,13 @@ class HVYM_UL_MeshSetList(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data,
                   active_propname, index):
 
-        # We could write some code to decide which icon to use here...
-        custom_icon = 'SHADING_RENDERED'
-
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            #layout.label(text=item.type, icon = custom_icon)
             layout.prop(item, "model_ref")
-            # layout.label(text=item.values)
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
-            #layout.label(text=item.type, icon = custom_icon)
             layout.prop(item, "model_ref")
-            # layout.label(text=item.values)
 
 
 class HVYM_MaterialSet(bpy.types.PropertyGroup):
@@ -1021,20 +1014,66 @@ class HVYM_UL_MaterialSetList(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data,
                   active_propname, index):
 
-        # We could write some code to decide which icon to use here...
-        custom_icon = 'SHADING_RENDERED'
-
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            #layout.label(text=item.type, icon = custom_icon)
             layout.prop(item, "material_ref")
-            # layout.label(text=item.values)
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
-            #layout.label(text=item.type, icon = custom_icon)
             layout.prop(item, "material_ref")
-            # layout.label(text=item.values)
+
+
+class HVYM_MorphSet(bpy.types.PropertyGroup):
+    """Group of properties representing a set of morphs."""
+
+    name: bpy.props.StringProperty(
+           name="Name",
+           description="Name of the morph set.",
+           default="",
+           update=onUpdate)
+
+    float_default: bpy.props.FloatProperty(
+           name="Default",
+           description="Add default value.",
+           default=0,
+           update=onUpdate)
+
+    float_min: bpy.props.FloatProperty(
+           name="Min",
+           description="Add minimum value.",
+           default=0,
+           update=onUpdate)
+
+    float_max: bpy.props.FloatProperty(
+           name="Max",
+           description="Add maximum value.",
+           default=1,
+           update=onUpdate)
+
+    morph_ref: bpy.props.PointerProperty(
+        name="Morph Reference",
+        type=bpy.types.Key)
+    
+
+class HVYM_UL_MorphSetList(bpy.types.UIList):
+    """Heavymeta morph set list."""
+
+    def draw_item(self, context, layout, data, item, icon, active_data,
+                  active_propname, index):
+    
+        # Make sure your code supports all 3 layout types
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name, icon = 'SHAPEKEY_DATA')
+            layout.prop(item, "float_default")
+            layout.prop(item, "float_min")
+            layout.prop(item, "float_max")
+
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text=item.name, icon = 'SHAPEKEY_DATA')
+            layout.prop(item, "float_default")
+            layout.prop(item, "float_min")
+            layout.prop(item, "float_max")
 
 
 class HVYM_DataItem(bpy.types.PropertyGroup):
@@ -1208,6 +1247,14 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default=-1,
            update=onUpdate)
 
+    morph_set: bpy.props.CollectionProperty(type = HVYM_MorphSet)
+
+    morph_set_index: bpy.props.IntProperty(
+           name="Morph Set Index",
+           description="Index of selected item in the morph set list.",
+           default=-1,
+           update=onUpdate)
+
 
 class HVYM_UL_DataList(bpy.types.UIList):
     """Heavymeta data list."""
@@ -1222,7 +1269,7 @@ class HVYM_UL_DataList(bpy.types.UIList):
             custom_icon = 'MESH_ICOSPHERE'
         if item.trait_type == 'mesh_set':
             custom_icon = 'FILE_3D'
-        elif item.trait_type == 'morph':
+        elif item.trait_type == 'morph_set':
             custom_icon = 'SHAPEKEY_DATA'
         elif item.trait_type == 'anim':
             custom_icon = 'ACTION_TWEAK'
@@ -1327,7 +1374,7 @@ class HVYM_LIST_NewMeshItem(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'mesh'
         item.type = '*'
-        item.values = 'visible'
+        item.values = 'Object'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -1342,6 +1389,7 @@ class HVYM_LIST_NewMeshSet(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'mesh_set'
         item.type = '*'
+        item.values = 'Mesh Set'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -1383,20 +1431,42 @@ class HVYM_LIST_DeleteMeshSetItem(bpy.types.Operator):
 
         return{'FINISHED'}
 
-class HVYM_LIST_NewMorphItem(bpy.types.Operator):
-    """Add a new morph item to the list."""
+class HVYM_LIST_NewMorphSet(bpy.types.Operator):
+    """Add a new morph set to the list."""
 
-    bl_idname = "hvym_meta_data.new_morph_item"
+    bl_idname = "hvym_meta_data.new_morph_set"
     bl_label = "Add a new morph item"
 
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
-        item.trait_type = 'morph'
+        item.trait_type = 'morph_set'
         item.type = '*'
-        item.values = '(0,0,1)'
+        item.values = 'Morph Set'
         updateNftData(context)
 
         return{'FINISHED'}
+
+
+class HVYM_LIST_DeleteMorphSetItem(bpy.types.Operator):
+    """Delete a morph slot from the set. Morph is not deleted"""
+
+    bl_idname = "hvym_meta_data.delete_morph_set_item"
+    bl_label = "Delete a morph set item"
+
+    def execute(self, context):
+        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if item.trait_type != 'morph_set':
+            return
+
+        index = item.morph_set_index
+
+        item.morph_set.remove(index)
+        item.morph_set_index = min(max(0, index - 1), len(item.morph_set) - 1)
+
+        updateNftData(context)
+
+        return{'FINISHED'}
+
 
 class HVYM_LIST_NewAnimItem(bpy.types.Operator):
     """Add a new animation item to the list."""
@@ -1408,7 +1478,7 @@ class HVYM_LIST_NewAnimItem(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'anim'
         item.type = '*'
-        item.values = 'N/A'
+        item.values = 'Animation'
         item.material_ref = context.active_object
         updateNftData(context)
 
@@ -1423,7 +1493,7 @@ class HVYM_LIST_NewMatItem(bpy.types.Operator):
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'material'
-        item.values = 'N/A'
+        item.values = 'Material'
 
         updateNftData(context)
 
@@ -1439,6 +1509,7 @@ class HVYM_LIST_NewMatSet(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'mat_set'
         item.type = '*'
+        item.values = 'Material Set'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -2094,7 +2165,7 @@ class HVYM_DataPanel(bpy.types.Panel):
         row.operator('hvym_meta_data.new_property_item', text='+', icon='FUND')
         row.operator('hvym_meta_data.new_mesh_item', text='+', icon='MESH_ICOSPHERE')
         row.operator('hvym_meta_data.new_mesh_set', text='+', icon='FILE_3D')
-        row.operator('hvym_meta_data.new_morph_item', text='+', icon='SHAPEKEY_DATA')
+        row.operator('hvym_meta_data.new_morph_set', text='+', icon='SHAPEKEY_DATA')
         row.operator('hvym_meta_data.new_anim_item', text='+', icon='ACTION_TWEAK')
         row.operator('hvym_meta_data.new_mat_item', text='+', icon='SHADING_RENDERED')
         row.operator('hvym_meta_data.new_mat_set', text='+', icon='OVERLAY')
@@ -2121,32 +2192,33 @@ class HVYM_DataPanel(bpy.types.Panel):
                     row.prop(item, "float_default")
                     row.prop(item, "float_min")
                     row.prop(item, "float_max")
-            elif item.trait_type == 'morph':
-                row.prop(item, "float_default")
-                row.prop(item, "float_min")
-                row.prop(item, "float_max")
+            elif item.trait_type == 'morph_set':
+                row.template_list("HVYM_UL_MorphSetList", "", item,
+                          "morph_set", item, "morph_set_index")
+                row = box.row()
+                row.operator('hvym_meta_data.delete_morph_set_item', text='', icon='REMOVE')
             elif item.trait_type == 'mesh':
                 row.prop(item, "model_ref")
                 row.prop(item, "visible")
             elif item.trait_type == 'mesh_set':
-                row.operator('hvym_meta_data.new_mesh_set_item', text='', icon='ADD')
-                row.operator('hvym_meta_data.delete_mesh_set_item', text='', icon='REMOVE')
-                row = box.row()
                 row.template_list("HVYM_UL_MeshSetList", "", item,
                           "mesh_set", item, "mesh_set_index")
+                row = box.row()
+                row.operator('hvym_meta_data.new_mesh_set_item', text='', icon='ADD')
+                row.operator('hvym_meta_data.delete_mesh_set_item', text='', icon='REMOVE')
             elif item.trait_type == 'anim':
                 row.prop(item, "anim_loop")
             elif item.trait_type == 'material':
                 row.prop(item, "mat_ref")
                 row.prop(item, "mat_type")
             elif item.trait_type == 'mat_set':
+                row.template_list("HVYM_UL_MaterialSetList", "", item,
+                          "mat_set", item, "mat_set_index")
+                row = box.row()
                 row.operator('hvym_meta_data.new_mat_set_material', text='+', icon='MATERIAL')
                 row.operator('hvym_meta_data.delete_mat_set_material', text='-', icon='CANCEL')
                 row.operator('hvym_meta_data.new_mat_set_item', text='Slot', icon='ADD')
                 row.operator('hvym_meta_data.delete_mat_set_item', text='Slot', icon='REMOVE')
-                row = box.row()
-                row.template_list("HVYM_UL_MaterialSetList", "", item,
-                          "mat_set", item, "mat_set_index")
             else:
                 row.prop(item, "values")
             row = box.row()
@@ -2354,6 +2426,7 @@ def outliner_menu_func(self, context):
     layout.operator(HVYM_AddModel.bl_idname, icon_value=logo.icon_id)
     layout.separator()
     layout.operator(HVYM_AddMaterial.bl_idname, icon_value=logo.icon_id)
+    layout.operator(HVYM_AddMaterialToSet.bl_idname, icon_value=logo.icon_id)
 
 def nla_menu_func(self, context):
     layout = self.layout
@@ -2375,7 +2448,7 @@ def has_hvym_data(trait_type, type_str):
 class HVYM_AddMorph(bpy.types.Operator):
     """Add this morph to the Heavymeta Data list."""
     bl_idname = "hvym_add.morph"
-    bl_label = "Add Morph Data"
+    bl_label = "Add Morph Data to Set"
 
     @classmethod
     def poll(cls, context):
@@ -2387,13 +2460,17 @@ class HVYM_AddMorph(bpy.types.Operator):
         print(context.space_data.context)
         if hasattr(context, 'button_pointer'):
             btn = context.button_pointer
-            if has_hvym_data('morph', btn.active_shape_key.name) == False:
-                item = context.collection.hvym_meta_data.add()
-                item.trait_type = 'morph'
-                item.type = btn.active_shape_key.name
-                item.values = '(0,0,1)'
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+            if item.trait_type == 'morph_set':
+                morph = item.morph_set.add()
+                morph.name = btn.active_shape_key.name
+                morph.float_default = btn.active_shape_key.value
+                morph.float_min = btn.active_shape_key.slider_min
+                morph.float_max = btn.active_shape_key.slider_max
+                dump_obj(btn.active_shape_key)
+
             else:
-                print("Item already exists in data.")
+                print("Invalid data selection.")
     
 
         return {'FINISHED'}
@@ -2418,7 +2495,7 @@ class HVYM_AddModel(bpy.types.Operator):
                 item = context.collection.hvym_meta_data.add()
                 item.trait_type = 'mesh'
                 item.type = obj.name
-                item.values = 'visible'
+                item.values = 'Object'
                 item.model_ref = context.active_object
             else:
                 print("Item already exists in data.")
@@ -2472,8 +2549,35 @@ class HVYM_AddMaterial(bpy.types.Operator):
                 item = context.collection.hvym_meta_data.add()
                 item.trait_type = 'material'
                 item.type = matName
-                item.values = 'N/A'
+                item.values = 'Material'
                 item.mat_ref = bpy.data.materials[matName]
+            else:
+                print("Item already exists in data.")
+    
+
+        return {'FINISHED'}
+
+class HVYM_AddMaterialToSet(bpy.types.Operator):
+    """Add a material to the Heavymeta Data list."""
+    bl_idname = "hvym_add.material_to_set"
+    bl_label = "Add Material Data to Set"
+
+    @classmethod
+    def poll(cls, context):
+        if isinstance(context.space_data, bpy.types.SpaceOutliner):
+            if context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Material':
+                return True
+
+    def execute(self, context):
+        matName  = context.selected_ids[0].name
+        if matName != None:
+            if has_hvym_data('material', matName) == False:
+                item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+                if item.trait_type == 'mat_set':
+                    mat_item = item.mat_set.add()
+                    item.values = 'Material Set'
+                    mat_item.material_ref = bpy.data.materials[matName]
+                    
             else:
                 print("Item already exists in data.")
     
@@ -2491,17 +2595,20 @@ blender_classes = [
     HVYM_MenuDataItem,
     HVYM_MeshSet,
     HVYM_MaterialSet,
+    HVYM_MorphSet,
     HVYM_DataItem,
     HVYM_UL_DataList,
     HVYM_UL_MeshSetList,
     HVYM_UL_MaterialSetList,
+    HVYM_UL_MorphSetList,
     HVYM_MENU_NewMenuTransform,
     HVYM_LIST_NewPropItem,
     HVYM_LIST_NewMeshItem,
     HVYM_LIST_NewMeshSet,
     HVYM_LIST_NewMeshSetItem,
     HVYM_LIST_DeleteMeshSetItem,
-    HVYM_LIST_NewMorphItem,
+    HVYM_LIST_NewMorphSet,
+    HVYM_LIST_DeleteMorphSetItem,
     HVYM_LIST_NewAnimItem,
     HVYM_LIST_NewMatItem,
     HVYM_LIST_NewMatSet,
@@ -2533,7 +2640,8 @@ blender_classes = [
     HVYM_AddMorph,
     HVYM_AddModel,
     HVYM_AddAnim,
-    HVYM_AddMaterial
+    HVYM_AddMaterial,
+    HVYM_AddMaterialToSet
     ]
 
 def register():
