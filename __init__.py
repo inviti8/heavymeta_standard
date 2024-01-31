@@ -731,8 +731,17 @@ def updateNftData(context):
             data[hvym_meta_data[i].type] = mesh_data
             meshSets[hvym_meta_data[i].type] = mesh_data
 
-        elif hvym_meta_data[i].trait_type == 'morph':
-            data[hvym_meta_data[i].type] = int_props
+        elif hvym_meta_data[i].trait_type == 'morph_set':
+            morph_sets = []
+            
+            for m in hvym_meta_data[i].morph_set:
+                morph_data = {}
+                morph_data['name'] = m.name
+                morph_data['default'] = m.float_default
+                morph_data['min'] = m.float_min
+                morph_data['max'] = m.float_max
+                morph_sets.append(morph_data)
+            data[hvym_meta_data[i].type] = morph_sets
             morphProps.append(data)
 
         elif hvym_meta_data[i].trait_type == 'anim':
@@ -1003,6 +1012,12 @@ class HVYM_MaterialSet(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    material_id: bpy.props.IntProperty(
+           name="Material ID",
+           description="ID for material.",
+           default=0,
+           update=onUpdate)
+
     material_ref: bpy.props.PointerProperty(
         name="Material Reference",
         type=bpy.types.Material)
@@ -1017,10 +1032,12 @@ class HVYM_UL_MaterialSetList(bpy.types.UIList):
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.prop(item, "material_ref")
+            layout.prop(item, "material_id")
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.prop(item, "material_ref")
+            layout.prop(item, "material_id")
 
 
 class HVYM_MorphSet(bpy.types.PropertyGroup):
@@ -1050,9 +1067,9 @@ class HVYM_MorphSet(bpy.types.PropertyGroup):
            default=1,
            update=onUpdate)
 
-    morph_ref: bpy.props.PointerProperty(
+    model_ref: bpy.props.PointerProperty(
         name="Morph Reference",
-        type=bpy.types.Key)
+        type=bpy.types.Object)
     
 
 class HVYM_UL_MorphSetList(bpy.types.UIList):
@@ -1437,11 +1454,16 @@ class HVYM_LIST_NewMorphSet(bpy.types.Operator):
     bl_idname = "hvym_meta_data.new_morph_set"
     bl_label = "Add a new morph item"
 
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object.type == 'MESH')
+
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'morph_set'
         item.type = '*'
         item.values = 'Morph Set'
+        item.model_ref = context.active_object
         updateNftData(context)
 
         return{'FINISHED'}
@@ -2193,6 +2215,9 @@ class HVYM_DataPanel(bpy.types.Panel):
                     row.prop(item, "float_min")
                     row.prop(item, "float_max")
             elif item.trait_type == 'morph_set':
+                row.enabled = False
+                row.prop(item, "model_ref")
+                row = box.row()
                 row.template_list("HVYM_UL_MorphSetList", "", item,
                           "morph_set", item, "morph_set_index")
                 row = box.row()
@@ -2564,7 +2589,8 @@ class HVYM_AddMaterialToSet(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if isinstance(context.space_data, bpy.types.SpaceOutliner):
+        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if isinstance(context.space_data, bpy.types.SpaceOutliner) and item.trait_type == 'mat_set':
             if context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Material':
                 return True
 
