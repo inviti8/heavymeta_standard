@@ -732,17 +732,21 @@ def updateNftData(context):
             meshSets[hvym_meta_data[i].type] = mesh_data
 
         elif hvym_meta_data[i].trait_type == 'morph_set':
+            morph_obj = {}
             morph_sets = []
-            
-            for m in hvym_meta_data[i].morph_set:
-                morph_data = {}
-                morph_data['name'] = m.name
-                morph_data['default'] = m.float_default
-                morph_data['min'] = m.float_min
-                morph_data['max'] = m.float_max
-                morph_sets.append(morph_data)
-            data[hvym_meta_data[i].type] = morph_sets
-            morphProps.append(data)
+
+            if hvym_meta_data[i].model_ref != None:
+                for m in hvym_meta_data[i].morph_set:
+                    morph_data = {}
+                    morph_data['name'] = m.name
+                    morph_data['default'] = m.float_default
+                    morph_data['min'] = m.float_min
+                    morph_data['max'] = m.float_max
+                    morph_sets.append(morph_data)
+                morph_obj['model_ref'] = hvym_meta_data[i].model_ref
+                morph_obj['set'] = morph_sets
+                data[hvym_meta_data[i].type] = morph_obj
+                morphProps.append(data)
 
         elif hvym_meta_data[i].trait_type == 'anim':
             data[hvym_meta_data[i].type] = hvym_meta_data[i].anim_loop
@@ -987,6 +991,12 @@ class HVYM_MeshSet(bpy.types.PropertyGroup):
         name="Model Reference",
         type=bpy.types.Object)
 
+    enabled: bpy.props.BoolProperty(
+           name="Enabled",
+           description="Object Interactive.",
+           default=True,
+           update=onUpdate)
+
 
 class HVYM_UL_MeshSetList(bpy.types.UIList):
     """Heavymeta mesh set list."""
@@ -996,10 +1006,12 @@ class HVYM_UL_MeshSetList(bpy.types.UIList):
 
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.enabled = item.enabled
             layout.prop(item, "model_ref")
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
+            layout.enabled = item.enabled
             layout.prop(item, "model_ref")
 
 
@@ -1013,7 +1025,7 @@ class HVYM_MaterialSet(bpy.types.PropertyGroup):
            update=onUpdate)
 
     material_id: bpy.props.IntProperty(
-           name="Material ID",
+           name="ID",
            description="ID for material.",
            default=0,
            update=onUpdate)
@@ -1527,11 +1539,26 @@ class HVYM_LIST_NewMatSet(bpy.types.Operator):
     bl_idname = "hvym_meta_data.new_mat_set"
     bl_label = "Add a new material set item"
 
+    @classmethod
+    def poll(cls, context):
+        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        return (item.trait_type == 'mesh_set')
+
     def execute(self, context):
+        ref_set_item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if ref_set_item.trait_type != 'mesh_set':
+            return
+
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'mat_set'
         item.type = '*'
         item.values = 'Material Set'
+        for m in ref_set_item.mesh_set:
+            mesh_set = item.mesh_set.add()
+            mesh_set.name = m.name
+            mesh_set.model_ref = m.model_ref
+            mesh_set.enabled = False
+
         updateNftData(context)
 
         return{'FINISHED'}
@@ -2239,6 +2266,9 @@ class HVYM_DataPanel(bpy.types.Panel):
             elif item.trait_type == 'mat_set':
                 row.template_list("HVYM_UL_MaterialSetList", "", item,
                           "mat_set", item, "mat_set_index")
+                col = self.layout.column()
+                row.template_list("HVYM_UL_MeshSetList", "", item,
+                          "mesh_set", item, "mesh_set_index")
                 row = box.row()
                 row.operator('hvym_meta_data.new_mat_set_material', text='+', icon='MATERIAL')
                 row.operator('hvym_meta_data.delete_mat_set_material', text='-', icon='CANCEL')
