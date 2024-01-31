@@ -626,7 +626,6 @@ class HVYM_MenuTransformGroup(GizmoGroup):
         ob = context.object
         gz = self._gizmo
         gz.matrix_basis = ob.matrix_world.normalized()
-        #self.handle_cutom_mesh_flag(context)
 
 
 
@@ -762,12 +761,24 @@ def updateNftData(context):
                 materials.append(data)
 
         elif hvym_meta_data[i].trait_type == 'mat_set':
-            mat_data = []
+            mat_obj = {}
+            mat_sets = []
+            mesh_set = []
             for m in hvym_meta_data[i].mat_set:
                 if m.material_ref != None:
-                    mat_data.append(m.material_ref)
-            data[hvym_meta_data[i].type] = mat_data
-            materialSets[hvym_meta_data[i].type] = mat_data
+                    morph_data = {}
+                    morph_data['name'] = m.name
+                    morph_data['material_id'] = m.material_id
+                    mat_sets.append(m.material_ref)
+
+            for m in hvym_meta_data[i].mesh_set:
+                if m.model_ref != None:
+                    mesh_set.append(m.model_ref)
+
+            mat_obj['mesh_set'] = mesh_set
+            mat_obj['set'] = mat_sets
+            data[hvym_meta_data[i].type] = mat_obj
+            materialSets[hvym_meta_data[i].type] = mat_obj
 
     for obj in context.collection.objects:
         nodes.append(obj.name)
@@ -1430,11 +1441,59 @@ class HVYM_LIST_NewMeshSetItem(bpy.types.Operator):
     bl_label = "Add a new mesh set item"
 
     def execute(self, context):
-        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
-        if item.trait_type != 'mesh_set':
+        item = None
+        if len(context.collection.hvym_meta_data)>0:
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+
+        if item != None and item.trait_type != 'mesh_set':
             return
 
-        mat_item = item.mesh_set.add()
+        mesh_item = item.mesh_set.add()
+        mesh_item.type = '*'
+        mesh_item.values = 'Mesh Set'
+
+        updateNftData(context)
+
+        return{'FINISHED'}
+
+class HVYM_LIST_AddMeshSetItemToSet(bpy.types.Operator):
+    """Add a new mesh set to the set."""
+
+    bl_idname = "hvym_meta_data.add_mesh_set_item_to_set"
+    bl_label = "Add a new mesh set item to a set"
+
+    @classmethod
+    def poll(cls, context):
+        item = None
+        if len(context.collection.hvym_meta_data)>0 and context.active_object.type == 'MESH':
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if item != None and item.trait_type == 'mesh_set' and len(item.mesh_set)>0:
+            result = True
+            for m in item.mesh_set:
+                if m.model_ref == None:
+                    result = False
+                    break
+
+            return result
+
+    def execute(self, context):
+        item = None
+        if len(context.collection.hvym_meta_data)>0:
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+
+        if item != None and item.trait_type != 'mesh_set' and context.active_object.type == 'MESH':
+            result = True
+            for m in item.mesh_set:
+                if m.model_ref == None:
+                    result = False
+                    break
+
+            return result
+
+        mesh_item = item.mesh_set.add()
+        mesh_item.type = '*'
+        mesh_item.values = 'Mesh Set'
+        mesh_item.model_ref = context.active_object
 
         updateNftData(context)
 
@@ -1541,8 +1600,18 @@ class HVYM_LIST_NewMatSet(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
-        return (item.trait_type == 'mesh_set')
+        item = None
+        if len(context.collection.hvym_meta_data)>0:
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if item != None and item.trait_type == 'mesh_set' and len(item.mesh_set)>0:
+            result = True
+            for m in item.mesh_set:
+                if m.model_ref == None:
+                    result = False
+                    break
+
+            return result
+
 
     def execute(self, context):
         ref_set_item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
@@ -2472,6 +2541,7 @@ def btn_menu_func(self, context):
     pcoll = preview_collections["main"]
     logo = pcoll["logo"]
     layout.operator(HVYM_AddMorph.bl_idname, icon_value=logo.icon_id)
+    layout.operator(HVYM_LIST_NewMatSet.bl_idname, icon_value=logo.icon_id)
 
 def outliner_menu_func(self, context):
     layout = self.layout
@@ -2479,6 +2549,7 @@ def outliner_menu_func(self, context):
     pcoll = preview_collections["main"]
     logo = pcoll["logo"]
     layout.operator(HVYM_AddModel.bl_idname, icon_value=logo.icon_id)
+    layout.operator(HVYM_LIST_AddMeshSetItemToSet.bl_idname, icon_value=logo.icon_id)
     layout.separator()
     layout.operator(HVYM_AddMaterial.bl_idname, icon_value=logo.icon_id)
     layout.operator(HVYM_AddMaterialToSet.bl_idname, icon_value=logo.icon_id)
@@ -2522,7 +2593,6 @@ class HVYM_AddMorph(bpy.types.Operator):
                 morph.float_default = btn.active_shape_key.value
                 morph.float_min = btn.active_shape_key.slider_min
                 morph.float_max = btn.active_shape_key.slider_max
-                dump_obj(btn.active_shape_key)
 
             else:
                 print("Invalid data selection.")
@@ -2662,6 +2732,7 @@ blender_classes = [
     HVYM_LIST_NewMeshItem,
     HVYM_LIST_NewMeshSet,
     HVYM_LIST_NewMeshSetItem,
+    HVYM_LIST_AddMeshSetItemToSet,
     HVYM_LIST_DeleteMeshSetItem,
     HVYM_LIST_NewMorphSet,
     HVYM_LIST_DeleteMorphSetItem,
