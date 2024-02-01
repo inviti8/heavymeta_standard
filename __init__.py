@@ -824,6 +824,28 @@ def updateNftData(context):
 
 def onUpdate(self, context):
     updateNftData(context)
+
+    #this flag is used when props are updated by the user
+    #This is so values can be pulled in from built in props
+    if hasattr(self, 'no_update') and self.no_update:
+        self.no_update = False #reset the flag
+    else:
+        #handle meshes and mesh set model ref visiblity
+        if hasattr(self, 'model_ref') and hasattr(self, 'visible'):
+            if self.model_ref != None:
+                self.model_ref.hide_set(not self.visible)
+
+        #handle meshes morph settings
+        if hasattr(self, 'model_ref') and hasattr(self, 'float_default') and hasattr(self, 'float_min') and hasattr(self, 'float_max'):
+            if self.model_ref != None:
+                index = self.model_ref.data.shape_keys.key_blocks.find(self.name)
+                morph = self.model_ref.data.shape_keys.key_blocks[index]
+                if morph != None:
+                    morph.slider_min = self.float_min
+                    morph.slider_max = self.float_max
+                    morph.value = self.float_default
+
+
     for col in bpy.data.collections:
         if len(col.objects) > 0:
             for obj in col.objects:
@@ -989,6 +1011,12 @@ class HVYM_MenuDataItem(bpy.types.PropertyGroup):
            default=-1,
            update=onUpdate)
 
+    no_update: bpy.props.BoolProperty(
+           name="Flag to stop auto update in the case of needing to update list values",
+           description="",
+           default=False)
+
+
 class HVYM_MeshSet(bpy.types.PropertyGroup):
     """Group of properties representing a set of meshes."""
 
@@ -1002,11 +1030,22 @@ class HVYM_MeshSet(bpy.types.PropertyGroup):
         name="Model Reference",
         type=bpy.types.Object)
 
+    visible: bpy.props.BoolProperty(
+           name="Visible",
+           description="Object visiblility.",
+           default=True,
+           update=onUpdate)
+
     enabled: bpy.props.BoolProperty(
            name="Enabled",
            description="Object Interactive.",
            default=True,
            update=onUpdate)
+
+    no_update: bpy.props.BoolProperty(
+           name="Flag to stop auto update in the case of needing to update list values",
+           description="",
+           default=False)
 
 
 class HVYM_UL_MeshSetList(bpy.types.UIList):
@@ -1019,11 +1058,13 @@ class HVYM_UL_MeshSetList(bpy.types.UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.enabled = item.enabled
             layout.prop(item, "model_ref")
+            layout.prop(item, "visible")
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.enabled = item.enabled
             layout.prop(item, "model_ref")
+            layout.prop(item, "visible")
 
 
 class HVYM_MaterialSet(bpy.types.PropertyGroup):
@@ -1044,6 +1085,11 @@ class HVYM_MaterialSet(bpy.types.PropertyGroup):
     material_ref: bpy.props.PointerProperty(
         name="Material Reference",
         type=bpy.types.Material)
+
+    no_update: bpy.props.BoolProperty(
+           name="Flag to stop auto update in the case of needing to update list values",
+           description="",
+           default=False)
     
 
 class HVYM_UL_MaterialSetList(bpy.types.UIList):
@@ -1093,6 +1139,11 @@ class HVYM_MorphSet(bpy.types.PropertyGroup):
     model_ref: bpy.props.PointerProperty(
         name="Morph Reference",
         type=bpy.types.Object)
+
+    no_update: bpy.props.BoolProperty(
+           name="Flag to stop auto update in the case of needing to update list values",
+           description="",
+           default=False)
     
 
 class HVYM_UL_MorphSetList(bpy.types.UIList):
@@ -1150,6 +1201,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            name="Values",
            description="Add '(default, min, max)'",
            default="",
+           update=onUpdate)
+
+    list_expanded: bpy.props.BoolProperty(
+           name="List Collapsed",
+           description="Bool for collapsing a list.",
+           default=False,
            update=onUpdate)
 
     int_default: bpy.props.IntProperty(
@@ -1228,6 +1285,11 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            description="Enable to add data menu to exported model.",
            default=False,
            update=onUpdate)
+
+    no_update: bpy.props.BoolProperty(
+           name="Flag to stop auto update in the case of needing to update list values",
+           description="",
+           default=False)
 
     menu_name: bpy.props.StringProperty(
            name="Menu Name",
@@ -1396,7 +1458,7 @@ class HVYM_LIST_NewPropItem(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'property'
         item.type = '*'
-        item.values = ''
+        item.values = 'Value Property'
         item.int_default = 0
         item.int_min = 0
         item.int_max = 1
@@ -1409,12 +1471,18 @@ class HVYM_LIST_NewMeshItem(bpy.types.Operator):
 
     bl_idname = "hvym_meta_data.new_mesh_item"
     bl_label = "Add a new mesh item"
+    #active_object_in_col(
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object.type == 'MESH' and active_object_in_col())
 
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'mesh'
         item.type = '*'
         item.values = 'Object'
+        item.model_ref = context.active_object
+        item.visible = (not context.active_object.hide_get())
         updateNftData(context)
 
         return{'FINISHED'}
@@ -1494,6 +1562,7 @@ class HVYM_LIST_AddMeshSetItemToSet(bpy.types.Operator):
         mesh_item.type = '*'
         mesh_item.values = 'Mesh Set'
         mesh_item.model_ref = context.active_object
+        mesh_item.visible = (not context.active_object.hide_get())
 
         updateNftData(context)
 
@@ -1838,6 +1907,33 @@ class HVYM_DataReload(bpy.types.Operator):
     def execute(self, context):
         print("Update NFT Data")
         updateNftData(bpy.context)
+        item = None
+        if len(context.collection.hvym_meta_data)>0:
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if item != None:
+            if item.trait_type == 'mesh' and item.model_ref != None:
+                item.no_update = True
+                item.model_ref.hide_set(item.visible)
+            if item.trait_type == 'mesh_set' and len(item.mesh_set)>0:
+                for m in item.mesh_set:
+                    if m.model_ref != None:
+                        m.no_update = True
+                        m.visible = (not m.model_ref.hide_get())
+            if item.trait_type == 'morph_set' and len(item.morph_set)>0:
+                for m in item.morph_set:
+                    if m.model_ref != None:
+                        index = m.model_ref.data.shape_keys.key_blocks.find(m.name)
+                        morph = m.model_ref.data.shape_keys.key_blocks[index]
+                        if morph != None:
+                            m.no_update = True
+                            m.name = morph.name
+                            m.no_update = True
+                            m.float_min = morph.slider_min
+                            m.no_update = True
+                            m.float_max = morph.slider_max
+                            m.no_update = True
+                            m.float_default = morph.value
+
         return {'FINISHED'}
 
 class HVYM_DataOrder(bpy.types.Operator):
@@ -2294,7 +2390,6 @@ class HVYM_DataPanel(bpy.types.Panel):
 
         if ctx.hvym_list_index >= 0 and ctx.hvym_meta_data:
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
-
             row = box.row()
             row.prop(item, "type")
             row = box.row()
@@ -2570,6 +2665,15 @@ def has_hvym_data(trait_type, type_str):
 
         return result
 
+def active_object_in_col():
+    result = False
+    for obj in bpy.context.collection.objects:
+        if obj == bpy.context.active_object:
+            result = True
+            break
+
+    return result
+
 
 class HVYM_AddMorph(bpy.types.Operator):
     """Add this morph to the Heavymeta Data list."""
@@ -2593,6 +2697,7 @@ class HVYM_AddMorph(bpy.types.Operator):
                 morph.float_default = btn.active_shape_key.value
                 morph.float_min = btn.active_shape_key.slider_min
                 morph.float_max = btn.active_shape_key.slider_max
+                morph.model_ref = item.model_ref
 
             else:
                 print("Invalid data selection.")
@@ -2689,7 +2794,9 @@ class HVYM_AddMaterialToSet(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        item = None
+        if len(context.collection.hvym_meta_data)>0:
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
         if isinstance(context.space_data, bpy.types.SpaceOutliner) and item.trait_type == 'mat_set':
             if context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Material':
                 return True
