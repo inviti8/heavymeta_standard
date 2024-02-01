@@ -697,7 +697,8 @@ def updateNftData(context):
             'default': hvym_meta_data[i].int_default, 
             'min': hvym_meta_data[i].int_min, 
             'max': hvym_meta_data[i].int_max,
-            'prop_slider_type': hvym_meta_data[i].prop_slider_type
+            'prop_slider_type': hvym_meta_data[i].prop_slider_type,
+            'prop_action_type': hvym_meta_data[i].prop_action_type
             }
 
         if hvym_meta_data[i].prop_value_type == 'Float':
@@ -705,7 +706,8 @@ def updateNftData(context):
                 'default': hvym_meta_data[i].float_default, 
                 'min': hvym_meta_data[i].float_min, 
                 'max': hvym_meta_data[i].float_max,
-                'prop_slider_type': hvym_meta_data[i].prop_slider_type
+                'prop_slider_type': hvym_meta_data[i].prop_slider_type,
+                'prop_action_type': hvym_meta_data[i].prop_action_type
                 }
 
         if hvym_meta_data[i].trait_type == 'property':
@@ -1197,6 +1199,14 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
                 ('Meter', 'Meter', ""),),
             update=onUpdate)
 
+    prop_action_type: bpy.props.EnumProperty(
+            name='Action Type',
+            description ="Set property action type.",
+            items=(('Immutable', 'Immutable', ""),
+                ('Incremental', 'Incremental', ""),
+                ('Mintable', 'Mintable', ""),),
+            update=onUpdate)
+
     values: bpy.props.StringProperty(
            name="Values",
            description="Add '(default, min, max)'",
@@ -1471,7 +1481,7 @@ class HVYM_LIST_NewMeshItem(bpy.types.Operator):
 
     bl_idname = "hvym_meta_data.new_mesh_item"
     bl_label = "Add a new mesh item"
-    #active_object_in_col(
+
     @classmethod
     def poll(cls, context):
         return (context.active_object.type == 'MESH' and active_object_in_col())
@@ -1493,11 +1503,18 @@ class HVYM_LIST_NewMeshSet(bpy.types.Operator):
     bl_idname = "hvym_meta_data.new_mesh_set"
     bl_label = "Add a new mesh set item"
 
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object.type == 'MESH' and active_object_in_col())
+
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'mesh_set'
         item.type = '*'
         item.values = 'Mesh Set'
+        mesh_item = item.mesh_set.add()
+        mesh_item.model_ref = context.active_object
+        mesh_item.visible = (not context.active_object.hide_get())
         updateNftData(context)
 
         return{'FINISHED'}
@@ -1507,6 +1524,10 @@ class HVYM_LIST_NewMeshSetItem(bpy.types.Operator):
 
     bl_idname = "hvym_meta_data.new_mesh_set_item"
     bl_label = "Add a new mesh set item"
+
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object.type == 'MESH' and active_object_in_col())
 
     def execute(self, context):
         item = None
@@ -1519,6 +1540,7 @@ class HVYM_LIST_NewMeshSetItem(bpy.types.Operator):
         mesh_item = item.mesh_set.add()
         mesh_item.type = '*'
         mesh_item.values = 'Mesh Set'
+        mesh_item.model_ref = context.active_object
 
         updateNftData(context)
 
@@ -1549,14 +1571,8 @@ class HVYM_LIST_AddMeshSetItemToSet(bpy.types.Operator):
         if len(context.collection.hvym_meta_data)>0:
             item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
 
-        if item != None and item.trait_type != 'mesh_set' and context.active_object.type == 'MESH':
-            result = True
-            for m in item.mesh_set:
-                if m.model_ref == None:
-                    result = False
-                    break
-
-            return result
+        if item != None or item.trait_type != 'mesh_set' or context.active_object.type != 'MESH':
+            return
 
         mesh_item = item.mesh_set.add()
         mesh_item.type = '*'
@@ -1573,6 +1589,13 @@ class HVYM_LIST_DeleteMeshSetItem(bpy.types.Operator):
 
     bl_idname = "hvym_meta_data.delete_mesh_set_item"
     bl_label = "Delete a mesh set item"
+
+    @classmethod
+    def poll(cls, context):
+        item = None
+        if len(context.collection.hvym_meta_data)>0:
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        return item != None and len(item.mesh_set)>0
 
     def execute(self, context):
         item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
@@ -1596,7 +1619,7 @@ class HVYM_LIST_NewMorphSet(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.active_object.type == 'MESH')
+        return (context.active_object.type == 'MESH' and active_object_in_col())
 
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
@@ -1636,12 +1659,15 @@ class HVYM_LIST_NewAnimItem(bpy.types.Operator):
     bl_idname = "hvym_meta_data.new_anim_item"
     bl_label = "Add a new animation item"
 
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object and context.active_object.animation_data)
+
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'anim'
         item.type = '*'
         item.values = 'Animation'
-        item.material_ref = context.active_object
         updateNftData(context)
 
         return{'FINISHED'}
@@ -1652,10 +1678,16 @@ class HVYM_LIST_NewMatItem(bpy.types.Operator):
     bl_idname = "hvym_meta_data.new_mat_item"
     bl_label = "Add a new material item"
 
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object.type == 'MESH' and active_object_in_col())
+
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'material'
+        item.type = '*'
         item.values = 'Material'
+        item.mat_ref = context.active_object.active_material
 
         updateNftData(context)
 
@@ -2396,6 +2428,7 @@ class HVYM_DataPanel(bpy.types.Panel):
             if item.trait_type == 'property':
                 row.prop(item, "prop_value_type")
                 row.prop(item, "prop_slider_type")
+                row.prop(item, "prop_action_type")
                 row = box.row()
                 if item.prop_value_type == 'Int':
                     row.prop(item, "int_default")
