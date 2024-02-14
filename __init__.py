@@ -681,12 +681,7 @@ def lockObj(obj):
 
 def RebuildMaterialSets(context):
     hvym_meta_data = context.collection.hvym_meta_data
-    
-    verts = [( 0.001,  0.001,  0.0), 
-         ( 0.001, -0.001,  0.0),
-         (-0.001, -0.001,  0.0),
-         ]
-         
+    verts = []    
     edges = []
     faces = []
 
@@ -700,7 +695,6 @@ def RebuildMaterialSets(context):
             obj = hvym_meta_data[i].mat_lib_ref
             if obj:
                 bpy.data.meshes.remove(obj.data)
-                #bpy.data.objects.remove(obj)
                     
             data_col = bpy.data.collections.get(col_name)
             if data_col is None:
@@ -713,18 +707,22 @@ def RebuildMaterialSets(context):
             lockObj(obj)
             data_col.objects.link(obj)
             hvym_meta_data[i].mat_lib_ref = obj
-                    
+            j=0       
             for m in hvym_meta_data[i].mat_set:
-                bpy.data.materials.new(name=m.mat_ref.name)
+                bpy.data.materials.new(name=m.name)
                 obj.data.materials.append(m.mat_ref)
-                faces.append([0,1,2])
+                verts.append(( 0.001,  0.001,  0.001*j))
+                verts.append(( 0.001,  -0.001,  0.001*j))
+                verts.append(( -0.001,  -0.001,  0.001*j))
+                faces.append([j,j+1,j+2])
+                j+=1
                     
             mesh.from_pydata(verts, edges, faces)
 
-            i=0
+            j=0
             for mat in obj.data.materials:
-                obj.data.polygons[i].material_index = i
-                i+=1
+                obj.data.polygons[j].material_index = j
+                j+=1
 
 
 def updateNftData(context):
@@ -830,7 +828,6 @@ def updateNftData(context):
             for m in hvym_meta_data[i].mat_set:
                 if m.mat_ref != None:
                     mat_data = {}
-                    mat_data['name'] = m.name
                     mat_data['mat_ref'] = m.mat_ref
                     mat_data['material_id'] = hvym_meta_data[i].material_id
                     mat_sets.append(mat_data)
