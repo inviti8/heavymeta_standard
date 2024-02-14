@@ -733,19 +733,22 @@ def updateNftData(context):
         
     hvym_meta_data = context.collection.hvym_meta_data
     setCollectionId(context.collection)
-    valProps = []
-    meshProps = []
+    #valProps = []
+    valProps = {}
+    #meshProps = []
+    meshProps = {}
     meshSets = {}
     morphProps = []
     animProps = []
-    materials = []
+    #materials = []
+    materials = {}
     materialSets = {}
     nodes = []
     menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None}
 
     for i in range(len(hvym_meta_data)):
-        data={}
-        data[hvym_meta_data[i].type] = hvym_meta_data[i].values
+        #data={}
+        #data[hvym_meta_data[i].type] = hvym_meta_data[i].values
         int_props = {
             'default': hvym_meta_data[i].int_default, 
             'min': hvym_meta_data[i].int_min, 
@@ -764,8 +767,9 @@ def updateNftData(context):
                 }
 
         if hvym_meta_data[i].trait_type == 'property':
-            data[hvym_meta_data[i].type] = int_props
-            valProps.append(data)
+            #data[hvym_meta_data[i].type] = int_props
+            #valProps.append(data)
+            valProps[hvym_meta_data[i].type] = int_props
 
         elif hvym_meta_data[i].trait_type == 'mesh':
             if hvym_meta_data[i].model_ref != None:
@@ -774,15 +778,16 @@ def updateNftData(context):
                             'type': hvym_meta_data[i].type, 
                             'visible': hvym_meta_data[i].visible
                             }
-                data[hvym_meta_data[i].type] = mesh_data
-                meshProps.append(data)
+                #data[hvym_meta_data[i].type] = mesh_data
+                #meshProps.append(data)
+                meshProps[hvym_meta_data[i].type] = mesh_data
 
         elif hvym_meta_data[i].trait_type == 'mesh_set':
             mesh_data = []
             for m in hvym_meta_data[i].mesh_set:
                 if m.model_ref != None:
                     mesh_data.append(m.model_ref)
-            data[hvym_meta_data[i].type] = mesh_data
+            #data[hvym_meta_data[i].type] = mesh_data
             meshSets[hvym_meta_data[i].type] = mesh_data
 
         elif hvym_meta_data[i].trait_type == 'morph_set':
@@ -812,8 +817,9 @@ def updateNftData(context):
                             'name': hvym_meta_data[i].mat_ref.name,
                             'type': hvym_meta_data[i].mat_type
                             }
-                data[hvym_meta_data[i].type] = mat_data
-                materials.append(data)
+                #data[hvym_meta_data[i].type] = mat_data
+                #materials.append(data)
+                materials[hvym_meta_data[i].type] = mat_data
 
         elif hvym_meta_data[i].trait_type == 'mat_set':
             mat_obj = {}
@@ -833,7 +839,7 @@ def updateNftData(context):
 
             mat_obj['mesh_set'] = mesh_set
             mat_obj['set'] = mat_sets
-            data[hvym_meta_data[i].type] = mat_obj
+            #data[hvym_meta_data[i].type] = mat_obj
             materialSets[hvym_meta_data[i].type] = mat_obj
 
     for obj in context.collection.objects:
@@ -3069,18 +3075,21 @@ def create_collections(gltf):
     animProps = None
     collections = {}
 
-    def set_col_data(type, prop):
+    def set_col_data(type, prop, dct):
         item = collection.hvym_meta_data.add()
         item.trait_type = type
-        item.type = prop.type
-        item.values = prop.values
+        item.type = prop
+        #item.values = prop.values
+        #item.values = dct[prop]
         updateNftData(bpy.context)
 
     for id in ext_data.keys():
-        if id == 'HVYM_nft_data':
+        if id == 'contract':
             bpy.context.scene.hvym_nft_price = ext_data[id]['nftPrice']
-            bpy.context.scene.hvym_nft_type_enum = ext_data[id]['nftType']
-            bpy.context.scene.hvym_minter_type_enum = ext_data[id]['minterType']
+            #bpy.context.scene.hvym_nft_type_enum = ext_data[id]['nftType']
+            bpy.context.collection.hvym_nft_type_enum = ext_data[id]['nftType']
+            #bpy.context.scene.hvym_minter_type_enum = ext_data[id]['minterType']
+            bpy.context.collection.hvym_minter_type_enum = ext_data[id]['minterType']
             bpy.context.scene.hvym_minter_name = ext_data[id]['minterName']
             bpy.context.scene.hvym_minter_description = ext_data[id]['minterDesc']
             bpy.context.scene.hvym_minter_image = ext_data[id]['minterImage']
@@ -3102,23 +3111,31 @@ def create_collections(gltf):
 
             if 'valProps' in ext_data[id].keys():
                 valProps = ext_data[id]['valProps']
-                for t in valProps:
-                    set_col_data('property', t)
+                item = collection.hvym_meta_data.add()
+                item.trait_type = "property"
+                for t in valProps.keys():
+                    item.int_default = valProps[t]["default"]
+                    item.int_min = valProps[t]["min"]
+                    item.int_min = valProps[t]["min"]
+                    item.prop_slider_type = valProps[t]["prop_slider_type"]
+                    item.prop_action_type = valProps[t]["prop_action_type"]
+                    #set_col_data('property', t, valProps)
+                updateNftData(bpy.context)
                 
             if 'meshProps' in ext_data[id].keys():
                 meshProps = ext_data[id]['meshProps']
                 for t in meshProps:
-                    set_col_data('mesh', t)
+                    set_col_data('mesh', t, meshProps)
 
             if 'morphProps' in ext_data[id].keys():
                 morphProps = ext_data[id]['morphProps']
                 for t in morphProps:
-                    set_col_data('morph', t)
+                    set_col_data('morph', t, morphProps)
 
             if 'animProps' in ext_data[id].keys():
                 animProps = ext_data[id]['animProps']
                 for t in animProps:
-                    set_col_data('anim', t)
+                    set_col_data('anim', t, animProps)
 
             
             bpy.context.scene.collection.children.link(collection)
@@ -3139,9 +3156,13 @@ def assign_collections_hvym_data(obj, gltf):
     collection_dict = {}
     linked = bpy.context.scene.hvym_collections_data.colData
 
-    for col in bpy.data.collections:
-        if col.hvym_id != None:
-            id = col.hvym_id
+    #print(type(bpy.data.collections))
+    for col in bpy.data.collections.keys():
+    #for col in bpy.data.collections:
+        hvym_coll = bpy.data.collections.get(col) #.hvym_id
+        if hvym_coll.hvym_id != None:
+        #if col.hvym_id != None:
+            id = hvym_coll.hvym_id
             mapping = ext_data[id]['nodes']
 
         if obj.name not in linked and obj.name in mapping:
