@@ -597,7 +597,7 @@ class HVYM_MenuTransformGroup(GizmoGroup):
         ob = context.object
         return (ob and ob.type == 'EMPTY')
 
-    def handle_cutom_mesh_flag(self, context):
+    def handle_custom_mesh_flag(self, context):
         ob = context.object
         if ob.hvym_menu_index == -1:
             self._gizmo.use_draw_modal = False
@@ -620,7 +620,7 @@ class HVYM_MenuTransformGroup(GizmoGroup):
         gz.use_draw_modal = False
         
         self._gizmo = gz
-        self.handle_cutom_mesh_flag(context)
+        self.handle_custom_mesh_flag(context)
 
     def refresh(self, context):
         ob = context.object
@@ -670,6 +670,59 @@ def color_to_hex(color):
 def setCollectionId(collection):
     if collection.hvym_id == '':
         collection.hvym_id = random_id()
+
+def lockObj(obj):
+    obj.hide_select = True
+    for i in range(3):
+        obj.lock_location[i] = True
+        obj.lock_rotation[i] = True
+        obj.lock_scale[i] = True
+
+
+def RebuildMaterialSets(context):
+    hvym_meta_data = context.collection.hvym_meta_data
+    
+    verts = [( 0.001,  0.001,  0.0), 
+         ( 0.001, -0.001,  0.0),
+         (-0.001, -0.001,  0.0),
+         ]
+         
+    edges = []
+    faces = []
+
+    for i in range(len(hvym_meta_data)):
+        if hvym_meta_data[i].trait_type == 'mat_set':
+            name = hvym_meta_data[i].type+'_'+context.collection.hvym_id
+            col_name = 'HVYM_OBJ_DATA'
+            obj = bpy.context.scene.objects.get(name)
+            mesh = bpy.data.meshes.new('MESH_'+name)  # add the new mesh
+                
+            obj = bpy.context.scene.objects.get(name)
+            if obj:
+                bpy.data.objects.remove(obj)
+                    
+            data_col = bpy.data.collections.get(col_name)
+            if data_col is None:
+                data_col = bpy.data.collections.new(col_name)
+                data_col.hide_select = True 
+                data_col.color_tag = 'COLOR_01'      
+                bpy.context.scene.collection.children.link(data_col)
+                    
+            obj = bpy.data.objects.new(name, mesh)
+            lockObj(obj)
+            data_col.objects.link(obj)
+                    
+            for m in hvym_meta_data[i].mat_set:
+                bpy.data.materials.new(name=m.mat_ref.name)
+                obj.data.materials.append(m.mat_ref)
+                faces.append([0,1,2])
+                    
+            mesh.from_pydata(verts, edges, faces)
+
+            i=0
+            for mat in obj.data.materials:
+                obj.data.polygons[i].material_index = i
+                i+=1
 
 
 def updateNftData(context):
@@ -768,10 +821,11 @@ def updateNftData(context):
             mesh_set = []
             for m in hvym_meta_data[i].mat_set:
                 if m.mat_ref != None:
-                    morph_data = {}
-                    morph_data['name'] = m.name
-                    morph_data['material_id'] = m.material_id
-                    mat_sets.append(m.mat_ref)
+                    mat_data = {}
+                    mat_data['name'] = m.name
+                    mat_data['mat_ref'] = m.mat_ref
+                    mat_data['material_id'] = m.material_id
+                    mat_sets.append(mat_data)
 
             for m in hvym_meta_data[i].mesh_set:
                 if m.model_ref != None:
@@ -1454,7 +1508,7 @@ class HVYM_LIST_NewMeshItem(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.active_object.type == 'MESH' and active_object_in_col())
+        return (context.active_object!=None and context.active_object.type == 'MESH' and active_object_in_col())
 
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
@@ -1475,7 +1529,7 @@ class HVYM_LIST_NewMeshSet(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.active_object.type == 'MESH' and active_object_in_col())
+        return (context.active_object!=None and context.active_object.type == 'MESH' and active_object_in_col())
 
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
@@ -1497,7 +1551,7 @@ class HVYM_LIST_NewMeshSetItem(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.active_object.type == 'MESH' and active_object_in_col())
+        return (context.active_object!=None and context.active_object.type == 'MESH' and active_object_in_col())
 
     def execute(self, context):
         item = None
@@ -1593,7 +1647,7 @@ class HVYM_LIST_NewMorphSet(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.active_object.type == 'MESH' and active_object_in_col())
+        return (context.active_object!=None and context.active_object.type == 'MESH' and active_object_in_col())
 
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
@@ -1654,7 +1708,7 @@ class HVYM_LIST_NewMatItem(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.active_object.type == 'MESH' and active_object_in_col())
+        return (context.active_object!=None and context.active_object.type == 'MESH' and active_object_in_col())
 
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
@@ -2351,6 +2405,10 @@ class HVYM_DataPanel(bpy.types.Panel):
     bl_region_type = 'WINDOW'
     bl_context = "collection"
 
+    @classmethod
+    def poll(cls, context):
+        return (context.collection.name != 'HVYM_OBJ_DATA')
+
     def draw_header(self, context):
         col = self.layout.column()
         box = col.row()
@@ -2360,6 +2418,7 @@ class HVYM_DataPanel(bpy.types.Panel):
         row.label(text="", icon_value=logo.icon_id)
 
     def draw(self, context):
+
         col = self.layout.column()
         box = col.row()
         row = box.row()
@@ -2830,7 +2889,7 @@ class HVYM_AddMaterialToSet(bpy.types.Operator):
         item = None
         if len(context.collection.hvym_meta_data)>0:
             item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
-        if isinstance(context.space_data, bpy.types.SpaceOutliner) and item.trait_type == 'mat_set':
+        if item != None and isinstance(context.space_data, bpy.types.SpaceOutliner) and item.trait_type == 'mat_set':
             if context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Material':
                 matName  = context.selected_ids[0].name
                 if not material_in_matset(bpy.data.materials[matName], item.mat_set):
