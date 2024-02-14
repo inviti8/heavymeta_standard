@@ -697,9 +697,10 @@ def RebuildMaterialSets(context):
             obj = bpy.context.scene.objects.get(name)
             mesh = bpy.data.meshes.new('MESH_'+name)  # add the new mesh
                 
-            obj = bpy.context.scene.objects.get(name)
+            obj = hvym_meta_data[i].mat_lib_ref
             if obj:
-                bpy.data.objects.remove(obj)
+                bpy.data.meshes.remove(obj.data)
+                #bpy.data.objects.remove(obj)
                     
             data_col = bpy.data.collections.get(col_name)
             if data_col is None:
@@ -711,6 +712,7 @@ def RebuildMaterialSets(context):
             obj = bpy.data.objects.new(name, mesh)
             lockObj(obj)
             data_col.objects.link(obj)
+            hvym_meta_data[i].mat_lib_ref = obj
                     
             for m in hvym_meta_data[i].mat_set:
                 bpy.data.materials.new(name=m.mat_ref.name)
@@ -830,7 +832,7 @@ def updateNftData(context):
                     mat_data = {}
                     mat_data['name'] = m.name
                     mat_data['mat_ref'] = m.mat_ref
-                    mat_data['material_id'] = m.material_id
+                    mat_data['material_id'] = hvym_meta_data[i].material_id
                     mat_sets.append(mat_data)
 
             for m in hvym_meta_data[i].mesh_set:
@@ -885,6 +887,7 @@ def updateNftData(context):
 
 
 def onUpdate(self, context):
+    RebuildMaterialSets(context)
     updateNftData(context)
 
     #this flag is used when props are updated by the user
@@ -1138,12 +1141,6 @@ class HVYM_MaterialSet(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
-    material_id: bpy.props.IntProperty(
-           name="ID",
-           description="ID for material.",
-           default=0,
-           update=onUpdate)
-
     mat_ref: bpy.props.PointerProperty(
         name="Material Reference",
         type=bpy.types.Material)
@@ -1163,12 +1160,10 @@ class HVYM_UL_MaterialSetList(bpy.types.UIList):
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.prop(item, "mat_ref")
-            layout.prop(item, "material_id")
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.prop(item, "mat_ref")
-            layout.prop(item, "material_id")
 
 
 class HVYM_MorphSet(bpy.types.PropertyGroup):
@@ -1349,6 +1344,16 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
     morph_ref: bpy.props.PointerProperty(
         name="Morph Reference",
         type=bpy.types.Key)
+
+    mat_lib_ref: bpy.props.PointerProperty(
+        name="Model Reference with all materials assigned.",
+        type=bpy.types.Object)
+
+    material_id: bpy.props.IntProperty(
+           name="ID",
+           description="ID for material.",
+           default=0,
+           update=onUpdate)
 
     use_menu: bpy.props.BoolProperty(
            name="Use Menu",
@@ -1762,7 +1767,8 @@ class HVYM_LIST_NewMatSet(bpy.types.Operator):
             mesh_set.name = m.name
             mesh_set.model_ref = m.model_ref
             mesh_set.enabled = False
-
+            
+        RebuildMaterialSets(context)
         updateNftData(context)
 
         return{'FINISHED'}
@@ -1861,8 +1867,13 @@ class HVYM_LIST_DeleteItem(bpy.types.Operator):
         return context.collection.hvym_meta_data
 
     def execute(self, context):
+        ctx = context.collection
         hvym_meta_data = context.collection.hvym_meta_data
         index = context.collection.hvym_list_index
+        item = ctx.hvym_meta_data[ctx.hvym_list_index]
+
+        if item.mat_lib_ref != None:
+            bpy.data.meshes.remove(item.mat_lib_ref.data)
 
         hvym_meta_data.remove(index)
         context.collection.hvym_list_index = min(max(0, index - 1), len(hvym_meta_data) - 1)
@@ -2500,6 +2511,8 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row.prop(item, "mat_ref")
                 row.prop(item, "mat_type")
             elif item.trait_type == 'mat_set':
+                row.prop(item, "material_id")
+                row = box.row()
                 row.template_list("HVYM_UL_MaterialSetList", "", item,
                           "mat_set", item, "mat_set_index")
                 col = self.layout.column()
@@ -2720,6 +2733,7 @@ def outliner_menu_func(self, context):
     layout.separator()
     layout.operator(HVYM_AddMaterial.bl_idname, icon_value=logo.icon_id)
     layout.operator(HVYM_AddMaterialToSet.bl_idname, icon_value=logo.icon_id)
+    layout.operator(HVYM_AddAllMeshMaterialsToSet.bl_idname, icon_value=logo.icon_id)
 
 def nla_menu_func(self, context):
     layout = self.layout
@@ -2910,6 +2924,37 @@ class HVYM_AddMaterialToSet(bpy.types.Operator):
                     mat_item = item.mat_set.add()
                     item.values = 'Material Set'
                     mat_item.mat_ref = bpy.data.materials[matName]
+                    RebuildMaterialSets(context)
+                    
+            else:
+                print("Item already exists in data.")
+    
+
+        return {'FINISHED'}
+
+class HVYM_AddAllMeshMaterialsToSet(bpy.types.Operator):
+    """Add all materials in mesh to the Heavymeta Data list."""
+    bl_idname = "hvym_add.all_materials_to_set"
+    bl_label = "Add All Material Data to Set"
+
+    @classmethod
+    def poll(cls, context):
+        if isinstance(context.space_data, bpy.types.SpaceOutliner) and context.active_object.type == 'MESH':
+            if context.active_object is not None and context.selected_ids[0].bl_rna.identifier == 'Object':
+                return True
+
+    def execute(self, context):
+        obj = context.active_object
+        for slot in obj.material_slots:
+            matName  = slot.material.name
+            if matName != None:
+                if has_hvym_data('material', matName) == False:
+                    item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+                    if item.trait_type == 'mat_set':
+                        mat_item = item.mat_set.add()
+                        item.values = 'Material Set'
+                        mat_item.mat_ref = slot.material
+                    RebuildMaterialSets(context)
                     
             else:
                 print("Item already exists in data.")
@@ -2975,7 +3020,8 @@ blender_classes = [
     HVYM_AddModel,
     HVYM_AddAnim,
     HVYM_AddMaterial,
-    HVYM_AddMaterialToSet
+    HVYM_AddMaterialToSet,
+    HVYM_AddAllMeshMaterialsToSet
     ]
 
 def register():
