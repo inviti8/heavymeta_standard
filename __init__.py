@@ -733,22 +733,17 @@ def updateNftData(context):
         
     hvym_meta_data = context.collection.hvym_meta_data
     setCollectionId(context.collection)
-    #valProps = []
     valProps = {}
-    #meshProps = []
     meshProps = {}
     meshSets = {}
     morphProps = []
     animProps = []
-    #materials = []
     materials = {}
     materialSets = {}
     nodes = []
     menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None}
 
     for i in range(len(hvym_meta_data)):
-        #data={}
-        #data[hvym_meta_data[i].type] = hvym_meta_data[i].values
         int_props = {
             'default': hvym_meta_data[i].int_default, 
             'min': hvym_meta_data[i].int_min, 
@@ -767,8 +762,6 @@ def updateNftData(context):
                 }
 
         if hvym_meta_data[i].trait_type == 'property':
-            #data[hvym_meta_data[i].type] = int_props
-            #valProps.append(data)
             valProps[hvym_meta_data[i].type] = int_props
 
         elif hvym_meta_data[i].trait_type == 'mesh':
@@ -778,8 +771,7 @@ def updateNftData(context):
                             'type': hvym_meta_data[i].type, 
                             'visible': hvym_meta_data[i].visible
                             }
-                #data[hvym_meta_data[i].type] = mesh_data
-                #meshProps.append(data)
+
                 meshProps[hvym_meta_data[i].type] = mesh_data
 
         elif hvym_meta_data[i].trait_type == 'mesh_set':
@@ -787,7 +779,6 @@ def updateNftData(context):
             for m in hvym_meta_data[i].mesh_set:
                 if m.model_ref != None:
                     mesh_data.append(m.model_ref)
-            #data[hvym_meta_data[i].type] = mesh_data
             meshSets[hvym_meta_data[i].type] = mesh_data
 
         elif hvym_meta_data[i].trait_type == 'morph_set':
@@ -817,8 +808,6 @@ def updateNftData(context):
                             'name': hvym_meta_data[i].mat_ref.name,
                             'type': hvym_meta_data[i].mat_type
                             }
-                #data[hvym_meta_data[i].type] = mat_data
-                #materials.append(data)
                 materials[hvym_meta_data[i].type] = mat_data
 
         elif hvym_meta_data[i].trait_type == 'mat_set':
@@ -829,7 +818,6 @@ def updateNftData(context):
                 if m.mat_ref != None:
                     mat_data = {}
                     mat_data['mat_ref'] = m.mat_ref
-                    mat_data['material_id'] = hvym_meta_data[i].material_id
                     mat_sets.append(mat_data)
 
             for m in hvym_meta_data[i].mesh_set:
@@ -838,12 +826,12 @@ def updateNftData(context):
 
             mat_obj['mesh_set'] = mesh_set
             mat_obj['set'] = mat_sets
-            #data[hvym_meta_data[i].type] = mat_obj
+            mat_obj['material_id'] = hvym_meta_data[i].material_id
             materialSets[hvym_meta_data[i].type] = mat_obj
 
     for obj in context.collection.objects:
-        nodes.append(obj.name)
-        obj.hvym_id = context.collection.hvym_id
+        node = {'name': obj.name, 'type': obj.type}
+        nodes.append(node)
 
     for i in range(len(context.scene.hvym_menu_meta_data)):
         data = context.scene.hvym_menu_meta_data[i]
@@ -868,7 +856,8 @@ def updateNftData(context):
                                                                                 'contractAddress': context.scene.hvym_contract_address
                                                                                 }
 
-    context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'collectionType': context.collection.hvym_collection_type,
+    context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'collectionName': context.collection.name,
+                                                                                'collectionType': context.collection.hvym_collection_type,
                                                                                 'valProps': valProps,
                                                                                 'meshProps': meshProps,
                                                                                 'meshSets': meshSets,
@@ -876,8 +865,7 @@ def updateNftData(context):
                                                                                 'animProps': animProps,
                                                                                 'materials': materials,
                                                                                 'materialSets': materialSets,
-                                                                                "collection_name": context.collection.name,
-                                                                                "menu_data": menu_data,
+                                                                                "menuData": menu_data,
                                                                                 "nodes": nodes
                                                                                 }
     
@@ -1980,7 +1968,8 @@ class HVYM_DataReload(bpy.types.Operator):
 
     def execute(self, context):
         print("Update NFT Data")
-        updateNftData(bpy.context)
+        RebuildMaterialSets(context)
+        updateNftData(context)
         item = None
         if len(context.collection.hvym_meta_data)>0:
             item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
@@ -3236,14 +3225,14 @@ class glTF2ExportUserExtension:
         for col in bpy.data.collections:
             mappings.append(col.name)
 
-        if bpy.types.Scene.hvym_collections_data.enabled:
-            if gltf2_object.extensions is None:
-                gltf2_object.extensions = {glTF_extension_name : None}
-            gltf2_object.extensions[glTF_extension_name] = self.Extension(
-                name = glTF_extension_name,
-                extension = mappings,
-                required = False
-            )
+        # if bpy.types.Scene.hvym_collections_data.enabled:
+        #     if gltf2_object.extensions is None:
+        #         gltf2_object.extensions = {glTF_extension_name : None}
+        #     gltf2_object.extensions[glTF_extension_name] = self.Extension(
+        #         name = glTF_extension_name,
+        #         extension = mappings,
+        #         required = False
+        #     )
 
     def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
 
@@ -3254,17 +3243,5 @@ class glTF2ExportUserExtension:
 
             for id in ctx.hvym_collections_data.nftData.keys():
                 data[id] = ctx.hvym_collections_data.nftData[id].to_dict()
-
-                for col in bpy.data.collections:
-                    if id == col.hvym_id:
-                        nodes = []
-                        for obj in col.objects:
-                            nodes.append(obj.name)
-
-                        data[id]['collection_name'] = col.name
-                        data[id]['collectionType'] = col.hvym_collection_type
-                        data[id]['nodes'] = nodes
                             
-    
-
             gltf2_object.extensions[glTF_extension_name] = data
