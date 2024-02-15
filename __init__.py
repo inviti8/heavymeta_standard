@@ -681,13 +681,13 @@ def lockObj(obj):
 
 def RebuildMaterialSets(context):
     hvym_meta_data = context.collection.hvym_meta_data
-    verts = []    
-    edges = []
-    faces = []
 
     for i in range(len(hvym_meta_data)):
+        verts = []    
+        edges = []
+        faces = []
         if hvym_meta_data[i].trait_type == 'mat_set':
-            name = hvym_meta_data[i].type+'_'+context.collection.hvym_id
+            name = 'mat_set'+context.collection.hvym_id+'_'+hvym_meta_data[i].type
             col_name = 'HVYM_OBJ_DATA'
             obj = bpy.context.scene.objects.get(name)
             mesh = bpy.data.meshes.new('MESH_'+name)  # add the new mesh
@@ -711,9 +711,9 @@ def RebuildMaterialSets(context):
             for m in hvym_meta_data[i].mat_set:
                 bpy.data.materials.new(name=m.name)
                 obj.data.materials.append(m.mat_ref)
-                verts.append(( 0.001,  0.001,  0.001*j))
-                verts.append(( 0.001,  -0.001,  0.001*j))
-                verts.append(( -0.001,  -0.001,  0.001*j))
+                verts.append(( 0.01,  0.01,  0.01*j))
+                verts.append(( 0.01,  -0.01,  0.01*j))
+                verts.append(( -0.01,  -0.01,  0.01*j))
                 faces.append([j,j+1,j+2])
                 j+=1
                     
