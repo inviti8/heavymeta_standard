@@ -820,9 +820,7 @@ def updateNftData(context):
             mesh_set = []
             for m in hvym_meta_data[i].mat_set:
                 if m.mat_ref != None:
-                    mat_data = {}
-                    mat_data['mat_ref'] = m.mat_ref
-                    mat_sets.append(mat_data)
+                    mat_sets.append(m.mat_ref)
 
             dump_obj(hvym_meta_data[i])
             print(hvym_meta_data[i].mesh_set)
