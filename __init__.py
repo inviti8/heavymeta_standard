@@ -709,11 +709,12 @@ def RebuildMaterialSets(context):
             hvym_meta_data[i].mat_lib_ref = obj
             j=0       
             for m in hvym_meta_data[i].mat_set:
+                size = 0.01
                 bpy.data.materials.new(name=m.name)
                 obj.data.materials.append(m.mat_ref)
-                verts.append(( 0.01,  0.01,  0.01*j))
-                verts.append(( 0.01,  -0.01,  0.01*j))
-                verts.append(( -0.01,  -0.01,  0.01*j))
+                verts.append(( size,  size,  size*j))
+                verts.append(( size,  -size,  size*j))
+                verts.append(( -size,  -size,  size*j))
                 faces.append([j,j+1,j+2])
                 j+=1
                     
@@ -768,18 +769,21 @@ def updateNftData(context):
             if hvym_meta_data[i].model_ref != None:
                 mesh_data = {
                             'name': hvym_meta_data[i].model_ref.name,
-                            'type': hvym_meta_data[i].type, 
                             'visible': hvym_meta_data[i].visible
                             }
 
                 meshProps[hvym_meta_data[i].type] = mesh_data
 
         elif hvym_meta_data[i].trait_type == 'mesh_set':
-            mesh_data = []
+            mesh_set_data = []
             for m in hvym_meta_data[i].mesh_set:
                 if m.model_ref != None:
-                    mesh_data.append(m.model_ref)
-            meshSets[hvym_meta_data[i].type] = mesh_data
+                    mesh_data = {
+                            'name': m.model_ref.name,
+                            'visible': hvym_meta_data[i].visible
+                            }
+                    mesh_set_data.append(mesh_data)
+            meshSets[hvym_meta_data[i].type] = mesh_set_data
 
         elif hvym_meta_data[i].trait_type == 'morph_set':
             morph_obj = {}
@@ -820,11 +824,14 @@ def updateNftData(context):
                     mat_data['mat_ref'] = m.mat_ref
                     mat_sets.append(mat_data)
 
+            dump_obj(hvym_meta_data[i])
+            print(hvym_meta_data[i].mesh_set)
+
             for m in hvym_meta_data[i].mesh_set:
                 if m.model_ref != None:
                     mesh_set.append(m.model_ref)
 
-            mat_obj['mesh_set'] = mesh_set
+            mat_obj['mesh_set'] = hvym_meta_data[i].mesh_set_name
             mat_obj['set'] = mat_sets
             mat_obj['material_id'] = hvym_meta_data[i].material_id
             materialSets[hvym_meta_data[i].type] = mat_obj
@@ -887,7 +894,7 @@ def onUpdate(self, context):
 
         #handle meshes morph settings
         if hasattr(self, 'model_ref') and hasattr(self, 'float_default') and hasattr(self, 'float_min') and hasattr(self, 'float_max'):
-            if self.model_ref != None:
+            if self.model_ref != None and self.model_ref.data.shape_keys != None:
                 index = self.model_ref.data.shape_keys.key_blocks.find(self.name)
                 morph = self.model_ref.data.shape_keys.key_blocks[index]
                 if morph != None:
@@ -1363,6 +1370,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    mesh_set_name: bpy.props.StringProperty(
+           name="Mesh Set Name",
+           description="name of the mesh set",
+           default="",
+           update=onUpdate)
+
     mesh_set: bpy.props.CollectionProperty(type = HVYM_MeshSet)
 
     mesh_set_index: bpy.props.IntProperty(
@@ -1747,6 +1760,7 @@ class HVYM_LIST_NewMatSet(bpy.types.Operator):
         item.trait_type = 'mat_set'
         item.type = '*'
         item.values = 'Material Set'
+        item.mesh_set_name = ref_set_item.type
         for m in ref_set_item.mesh_set:
             mesh_set = item.mesh_set.add()
             mesh_set.name = m.name
