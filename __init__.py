@@ -750,7 +750,8 @@ def updateNftData(context):
             'min': hvym_meta_data[i].int_min, 
             'max': hvym_meta_data[i].int_max,
             'prop_slider_type': hvym_meta_data[i].prop_slider_type,
-            'prop_action_type': hvym_meta_data[i].prop_action_type
+            'prop_action_type': hvym_meta_data[i].prop_action_type,
+            'widget': hvym_meta_data[i].widget
             }
 
         if hvym_meta_data[i].prop_value_type == 'Float':
@@ -759,7 +760,8 @@ def updateNftData(context):
                 'min': hvym_meta_data[i].float_min, 
                 'max': hvym_meta_data[i].float_max,
                 'prop_slider_type': hvym_meta_data[i].prop_slider_type,
-                'prop_action_type': hvym_meta_data[i].prop_action_type
+                'prop_action_type': hvym_meta_data[i].prop_action_type,
+                'widget': hvym_meta_data[i].widget
                 }
 
         if hvym_meta_data[i].trait_type == 'property':
@@ -769,12 +771,14 @@ def updateNftData(context):
             if hvym_meta_data[i].model_ref != None:
                 mesh_data = {
                             'name': hvym_meta_data[i].model_ref.name,
-                            'visible': hvym_meta_data[i].visible
+                            'visible': hvym_meta_data[i].visible,
+                            'widget': hvym_meta_data[i].widget
                             }
 
                 meshProps[hvym_meta_data[i].type] = mesh_data
 
         elif hvym_meta_data[i].trait_type == 'mesh_set':
+            mesh_set_obj = {}
             mesh_set_data = []
             for m in hvym_meta_data[i].mesh_set:
                 if m.model_ref != None:
@@ -783,7 +787,9 @@ def updateNftData(context):
                             'visible': hvym_meta_data[i].visible
                             }
                     mesh_set_data.append(mesh_data)
-            meshSets[hvym_meta_data[i].type] = mesh_set_data
+            mesh_set_obj['set'] = mesh_set_data
+            mesh_set_obj['widget'] = hvym_meta_data[i].widget
+            meshSets[hvym_meta_data[i].type] = mesh_set_obj
 
         elif hvym_meta_data[i].trait_type == 'morph_set':
             morph_obj = {}
@@ -799,18 +805,28 @@ def updateNftData(context):
                     morph_sets.append(morph_data)
                 morph_obj['model_ref'] = hvym_meta_data[i].model_ref
                 morph_obj['set'] = morph_sets
+                morph_obj['widget'] = hvym_meta_data[i].widget
                 data[hvym_meta_data[i].type] = morph_obj
                 morphProps.append(data)
 
         elif hvym_meta_data[i].trait_type == 'anim':
-            data[hvym_meta_data[i].type] = hvym_meta_data[i].anim_loop
+            anim_obj = {
+                        'loop': hvym_meta_data[i].anim_loop,
+                        'widget': hvym_meta_data[i].widget
+                        }
+            data[hvym_meta_data[i].type] = anim_obj;
             animProps.append(data)
 
-        elif hvym_meta_data[i].trait_type == 'material':
+        elif hvym_meta_data[i].trait_type == 'mat_prop':
             if hvym_meta_data[i].mat_ref != None:
                 mat_data = {
                             'name': hvym_meta_data[i].mat_ref.name,
-                            'type': hvym_meta_data[i].mat_type
+                            'type': hvym_meta_data[i].mat_type,
+                            'emissive': hvym_meta_data[i].mat_emissive,
+                            'reflective': hvym_meta_data[i].mat_reflective,
+                            'irridescent': hvym_meta_data[i].mat_irridescent,
+                            'sheen': hvym_meta_data[i].mat_sheen,
+                            'widget': hvym_meta_data[i].widget
                             }
                 materials[hvym_meta_data[i].type] = mat_data
 
@@ -822,9 +838,6 @@ def updateNftData(context):
                 if m.mat_ref != None:
                     mat_sets.append(m.mat_ref)
 
-            dump_obj(hvym_meta_data[i])
-            print(hvym_meta_data[i].mesh_set)
-
             for m in hvym_meta_data[i].mesh_set:
                 if m.model_ref != None:
                     mesh_set.append(m.model_ref)
@@ -832,7 +845,9 @@ def updateNftData(context):
             mat_obj['mesh_set'] = hvym_meta_data[i].mesh_set_name
             mat_obj['set'] = mat_sets
             mat_obj['material_id'] = hvym_meta_data[i].material_id
+            mat_obj['widget'] = hvym_meta_data[i].widget
             materialSets[hvym_meta_data[i].type] = mat_obj
+            print(materialSets[hvym_meta_data[i].type])
 
     for obj in context.collection.objects:
         node = {'name': obj.name, 'type': obj.type}
@@ -868,7 +883,7 @@ def updateNftData(context):
                                                                                 'meshSets': meshSets,
                                                                                 'morphProps': morphProps,
                                                                                 'animProps': animProps,
-                                                                                'materials': materials,
+                                                                                'matProps': materials,
                                                                                 'materialSets': materialSets,
                                                                                 "menuData": menu_data,
                                                                                 "nodes": nodes
@@ -1229,6 +1244,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    widget: bpy.props.BoolProperty(
+           name="Is Widget",
+           description="Create Widget for this data.",
+           default=True,
+           update=onUpdate)
+
     prop_value_type: bpy.props.EnumProperty(
             name='Value Type',
             description ="Set value type of property.",
@@ -1331,6 +1352,30 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
         name="Material Reference",
         type=bpy.types.Material)
 
+    mat_emissive: bpy.props.BoolProperty(
+           name="Emissive",
+           description="Object emissive.",
+           default=False,
+           update=onUpdate)
+
+    mat_reflective: bpy.props.BoolProperty(
+           name="Reflective",
+           description="Object reflective.",
+           default=False,
+           update=onUpdate)
+
+    mat_irridescent: bpy.props.BoolProperty(
+           name="Irridescent",
+           description="Object irridescence.",
+           default=False,
+           update=onUpdate)
+
+    mat_sheen: bpy.props.BoolProperty(
+           name="Sheen",
+           description="Object sheen.",
+           default=False,
+           update=onUpdate)
+
     morph_ref: bpy.props.PointerProperty(
         name="Morph Reference",
         type=bpy.types.Key)
@@ -1416,7 +1461,7 @@ class HVYM_UL_DataList(bpy.types.UIList):
             custom_icon = 'SHAPEKEY_DATA'
         elif item.trait_type == 'anim':
             custom_icon = 'ACTION_TWEAK'
-        elif item.trait_type == 'material':
+        elif item.trait_type == 'mat_prop':
             custom_icon = 'SHADING_RENDERED'
         elif item.trait_type == 'mat_set':
             custom_icon = 'OVERLAY'
@@ -1719,7 +1764,7 @@ class HVYM_LIST_NewMatItem(bpy.types.Operator):
 
     def execute(self, context):
         item = context.collection.hvym_meta_data.add()
-        item.trait_type = 'material'
+        item.trait_type = 'mat_prop'
         item.type = '*'
         item.values = 'Material'
         item.mat_ref = context.active_object.active_material
@@ -1967,7 +2012,7 @@ class HVYM_LIST_DefaultValues(bpy.types.Operator):
             item.values = '(0,0,1)'
         elif item.trait_type == 'anim':
             item.values = 'N/A'
-        elif item.trait_type == 'material':
+        elif item.trait_type == 'mat_prop':
             item.values = 'N/A'
 
         return{'FINISHED'}
@@ -2008,50 +2053,6 @@ class HVYM_DataReload(bpy.types.Operator):
                             m.float_max = morph.slider_max
                             m.no_update = True
                             m.float_default = morph.value
-
-        return {'FINISHED'}
-
-class HVYM_DataOrder(bpy.types.Operator):
-    bl_idname = "hvym_data.order"
-    bl_label = "Order Data"
-    bl_description ="Reorder the data for this collection."
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        hvym_meta_data = bpy.context.collection.hvym_meta_data
-        valProps = []
-        meshProps = []
-        morphProps = []
-        animProps = []
-        materials = []
-
-        for data in hvym_meta_data:
-            obj = {'trait_type':data.trait_type, 'type':data.type, 'values':data.values}
-            if obj['trait_type'] == 'property':
-                valProps.append(obj)
-            elif obj['trait_type'] == 'mesh':
-                meshProps.append(obj)
-            elif obj['trait_type'] == 'morph':
-                morphProps.append(obj)
-            elif obj['trait_type'] == 'anim':
-                animProps.append(obj)
-            elif obj['trait_type'] == 'material':
-                materials.append(obj)
-
-        allProps = [valProps, meshProps, morphProps, animProps, materials]
-
-        for i in range(len(hvym_meta_data)):
-            bpy.ops.hvym_meta_data.delete_item()
-        
-        for arr in allProps:
-            for item in arr:
-                new_item = bpy.context.collection.hvym_meta_data.add()
-                for key in new_item.keys():
-                    new_item[key] = item[key]
-                # new_item.trait_type = item['trait_type']
-                # new_item.type = item['type']
-                # new_item.values = item['values']
-                
 
         return {'FINISHED'}
 
@@ -2451,7 +2452,6 @@ class HVYM_DataPanel(bpy.types.Panel):
         row.separator()
         row.label(text="NFT Data:")
         row = box.row()
-        row.operator('hvym_data.order', text='', icon='LINENUMBERS_ON')
         row.template_list("HVYM_UL_DataList", "", ctx,
                           "hvym_meta_data", ctx, "hvym_list_index")
 
@@ -2472,6 +2472,7 @@ class HVYM_DataPanel(bpy.types.Panel):
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
             row = box.row()
             row.prop(item, "type")
+            row.prop(item, "widget")
             row = box.row()
             if item.trait_type == 'property':
                 row.prop(item, "prop_value_type")
@@ -2505,9 +2506,14 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row.operator('hvym_meta_data.delete_mesh_set_item', text='', icon='REMOVE')
             elif item.trait_type == 'anim':
                 row.prop(item, "anim_loop")
-            elif item.trait_type == 'material':
+            elif item.trait_type == 'mat_prop':
                 row.prop(item, "mat_ref")
                 row.prop(item, "mat_type")
+                row = box.row()
+                row.prop(item, "mat_emissive")
+                row.prop(item, "mat_reflective")
+                row.prop(item, "mat_irridescent")
+                row.prop(item, "mat_sheen")
             elif item.trait_type == 'mat_set':
                 row.prop(item, "material_id")
                 row = box.row()
@@ -2885,9 +2891,9 @@ class HVYM_AddMaterial(bpy.types.Operator):
     def execute(self, context):
         matName  = context.selected_ids[0].name
         if matName != None:
-            if has_hvym_data('material', matName) == False:
+            if has_hvym_data('mat_prop', matName) == False:
                 item = context.collection.hvym_meta_data.add()
-                item.trait_type = 'material'
+                item.trait_type = 'mat_prop'
                 item.type = matName
                 item.values = 'Material'
                 item.mat_ref = bpy.data.materials[matName]
@@ -2916,7 +2922,7 @@ class HVYM_AddMaterialToSet(bpy.types.Operator):
     def execute(self, context):
         matName  = context.selected_ids[0].name
         if matName != None:
-            if has_hvym_data('material', matName) == False:
+            if has_hvym_data('mat_prop', matName) == False:
                 item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
                 if item.trait_type == 'mat_set':
                     mat_item = item.mat_set.add()
@@ -3001,7 +3007,6 @@ blender_classes = [
     HVYM_DebugMinter,
     HVYM_DebugModel,
     HVYM_DataReload,
-    HVYM_DataOrder,
     HVYM_ExportHelper,
     HVYM_DeployMinter,
     HVYM_DeployConfirmMinterDeployDialog,
