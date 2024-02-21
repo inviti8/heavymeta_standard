@@ -743,6 +743,7 @@ def updateNftData(context):
     materialSets = {}
     nodes = []
     menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None}
+    prop_label_data = None
 
     for i in range(len(hvym_meta_data)):
         int_props = {
@@ -763,6 +764,8 @@ def updateNftData(context):
                 'prop_action_type': hvym_meta_data[i].prop_action_type,
                 'widget': hvym_meta_data[i].widget
                 }
+
+        prop_label_data = {'value_prop_label': hvym_meta_data[i].value_prop_label, 'mesh_prop_label': hvym_meta_data[i].mesh_prop_label, 'mat_prop_label': hvym_meta_data[i].mat_prop_label, 'anim_prop_label': hvym_meta_data[i].anim_prop_label, 'mesh_set_label': hvym_meta_data[i].mesh_set_label, 'morph_set_label': hvym_meta_data[i].morph_set_label, 'mat_set_label': hvym_meta_data[i].mat_set_label}
 
         if hvym_meta_data[i].trait_type == 'property':
             valProps[hvym_meta_data[i].type] = int_props
@@ -886,6 +889,7 @@ def updateNftData(context):
                                                                                 'matProps': materials,
                                                                                 'materialSets': materialSets,
                                                                                 "menuData": menu_data,
+                                                                                "propLabelData": prop_label_data,
                                                                                 "nodes": nodes
                                                                                 }
     
@@ -1441,6 +1445,48 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            name="Morph Set Index",
            description="Index of selected item in the morph set list.",
            default=-1,
+           update=onUpdate)
+
+    value_prop_label: bpy.props.StringProperty(
+           name="Value Property Label",
+           description="Re-map name for value properties in this collection.",
+           default="Value Properties",
+           update=onUpdate)
+
+    mesh_prop_label: bpy.props.StringProperty(
+           name="Mesh Property Label",
+           description="Re-map name for mesh properties in this collection.",
+           default="Mesh Properties",
+           update=onUpdate)
+
+    mat_prop_label: bpy.props.StringProperty(
+           name="Material Property Label",
+           description="Re-map name for material properties in this collection.",
+           default="Material Properties",
+           update=onUpdate)
+
+    anim_prop_label: bpy.props.StringProperty(
+           name="Animation Property Label",
+           description="Re-map name for animation properties in this collection.",
+           default="Animation Properties",
+           update=onUpdate)
+
+    mesh_set_label: bpy.props.StringProperty(
+           name="Mesh Set Label",
+           description="Re-map name for mesh sets in this collection.",
+           default="Mesh Sets",
+           update=onUpdate)
+
+    morph_set_label: bpy.props.StringProperty(
+           name="Morph Set Label",
+           description="Re-map name for morph sets in this collection.",
+           default="Morph Sets",
+           update=onUpdate)
+
+    mat_set_label: bpy.props.StringProperty(
+           name="Material Set Label",
+           description="Re-map name for material sets in this collection.",
+           default="Material Sets",
            update=onUpdate)
 
 
@@ -2536,6 +2582,24 @@ class HVYM_DataPanel(bpy.types.Panel):
         name = 'menu_'+ctx.hvym_id
         row.enabled = (bpy.data.objects.get(name) == None)
         row.operator('hvym_menu_meta_data.new_menu_transform', text='Add Menu Transform', icon='OBJECT_ORIGIN')
+        box = col.box()
+        row = box.row()
+        row.label(text="Property Names:")
+        row = box.row()
+        row.prop(item, "value_prop_label")
+        row = box.row()
+        row.prop(item, "mesh_prop_label")
+        row = box.row()
+        row.prop(item, "mat_prop_label")
+        row = box.row()
+        row.prop(item, "anim_prop_label")
+        row = box.row()
+        row.prop(item, "mesh_set_label")
+        row = box.row()
+        row.prop(item, "morph_set_label")
+        row = box.row()
+        row.prop(item, "mat_set_label")
+
 
 
 
