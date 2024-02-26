@@ -1264,9 +1264,9 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
     prop_slider_type: bpy.props.EnumProperty(
             name='Widget Type',
             description ="Set ui widget for property.",
-            items=(('TextBox', 'Text Box', ""),
-                ('Slider', 'Slider', ""),
-                ('Meter', 'Meter', ""),),
+            items=(('value_meter', 'Text Box Meter', ""),
+                ('slider', 'Slider', ""),
+                ('meter', 'Meter', ""),),
             update=onUpdate)
 
     prop_action_type: bpy.props.EnumProperty(
