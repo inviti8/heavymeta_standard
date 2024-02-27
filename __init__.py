@@ -737,8 +737,8 @@ def updateNftData(context):
     valProps = {}
     meshProps = {}
     meshSets = {}
-    morphProps = []
-    animProps = []
+    morphProps = {}
+    animProps = {}
     materials = {}
     materialSets = {}
     nodes = []
@@ -812,10 +812,9 @@ def updateNftData(context):
                     morph_sets.append(morph_data)
                 morph_obj['model_ref'] = hvym_meta_data[i].model_ref
                 morph_obj['set'] = morph_sets
-                morph_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
+                morph_obj['widget_type'] = hvym_meta_data[i].prop_multi_widget_type
                 morph_obj['widget'] = hvym_meta_data[i].widget
-                data[hvym_meta_data[i].type] = morph_obj
-                morphProps.append(data)
+                morphProps[hvym_meta_data[i].type] = morph_obj
 
         elif hvym_meta_data[i].trait_type == 'anim':
             anim_obj = {
@@ -823,8 +822,7 @@ def updateNftData(context):
                         'widget_type': hvym_meta_data[i].prop_selector_type,
                         'widget': hvym_meta_data[i].widget
                         }
-            data[hvym_meta_data[i].type] = anim_obj;
-            animProps.append(data)
+            animProps[hvym_meta_data[i].type] = anim_obj;
 
         elif hvym_meta_data[i].trait_type == 'mat_prop':
             if hvym_meta_data[i].mat_ref != None:
@@ -1242,13 +1240,13 @@ class HVYM_UL_MorphSetList(bpy.types.UIList):
 
 def GetPropWidgetType(trait_type):
     result = 'meter'
-    if trait_type == 'property' or trait_type == 'morph_set':
+    if trait_type == 'property':
         result = 'prop_slider_type'
     elif trait_type == 'mat_set' or trait_type == 'mesh_set' or trait_type == 'anim':
         result = 'prop_selector_type'
     elif trait_type == 'mesh':
         result = 'prop_toggle_type'
-    elif trait_type == 'mat_prop':
+    elif trait_type == 'mat_prop' or trait_type == 'morph_set':
         result = 'prop_multi_widget_type'
 
     return result
