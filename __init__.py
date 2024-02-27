@@ -752,6 +752,7 @@ def updateNftData(context):
             'max': hvym_meta_data[i].int_max,
             'prop_slider_type': hvym_meta_data[i].prop_slider_type,
             'prop_action_type': hvym_meta_data[i].prop_action_type,
+            'widget_type': hvym_meta_data[i].prop_slider_type,
             'widget': hvym_meta_data[i].widget
             }
 
@@ -762,6 +763,7 @@ def updateNftData(context):
                 'max': hvym_meta_data[i].float_max,
                 'prop_slider_type': hvym_meta_data[i].prop_slider_type,
                 'prop_action_type': hvym_meta_data[i].prop_action_type,
+                'widget_type': hvym_meta_data[i].prop_slider_type,
                 'widget': hvym_meta_data[i].widget
                 }
 
@@ -775,6 +777,7 @@ def updateNftData(context):
                 mesh_data = {
                             'name': hvym_meta_data[i].model_ref.name,
                             'visible': hvym_meta_data[i].visible,
+                            'widget_type': hvym_meta_data[i].prop_toggle_type,
                             'widget': hvym_meta_data[i].widget
                             }
 
@@ -791,6 +794,7 @@ def updateNftData(context):
                             }
                     mesh_set_data.append(mesh_data)
             mesh_set_obj['set'] = mesh_set_data
+            mesh_set_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
             mesh_set_obj['widget'] = hvym_meta_data[i].widget
             meshSets[hvym_meta_data[i].type] = mesh_set_obj
 
@@ -808,6 +812,7 @@ def updateNftData(context):
                     morph_sets.append(morph_data)
                 morph_obj['model_ref'] = hvym_meta_data[i].model_ref
                 morph_obj['set'] = morph_sets
+                morph_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
                 morph_obj['widget'] = hvym_meta_data[i].widget
                 data[hvym_meta_data[i].type] = morph_obj
                 morphProps.append(data)
@@ -815,6 +820,7 @@ def updateNftData(context):
         elif hvym_meta_data[i].trait_type == 'anim':
             anim_obj = {
                         'loop': hvym_meta_data[i].anim_loop,
+                        'widget_type': hvym_meta_data[i].prop_selector_type,
                         'widget': hvym_meta_data[i].widget
                         }
             data[hvym_meta_data[i].type] = anim_obj;
@@ -829,6 +835,7 @@ def updateNftData(context):
                             'reflective': hvym_meta_data[i].mat_reflective,
                             'irridescent': hvym_meta_data[i].mat_irridescent,
                             'sheen': hvym_meta_data[i].mat_sheen,
+                            'widget_type': hvym_meta_data[i].prop_multi_widget_type,
                             'widget': hvym_meta_data[i].widget
                             }
                 materials[hvym_meta_data[i].type] = mat_data
@@ -848,6 +855,7 @@ def updateNftData(context):
             mat_obj['mesh_set'] = hvym_meta_data[i].mesh_set_name
             mat_obj['set'] = mat_sets
             mat_obj['material_id'] = hvym_meta_data[i].material_id
+            mat_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
             mat_obj['widget'] = hvym_meta_data[i].widget
             materialSets[hvym_meta_data[i].type] = mat_obj
             print(materialSets[hvym_meta_data[i].type])
@@ -1232,6 +1240,18 @@ class HVYM_UL_MorphSetList(bpy.types.UIList):
             layout.prop(item, "float_min")
             layout.prop(item, "float_max")
 
+def GetPropWidgetType(trait_type):
+    result = 'meter'
+    if trait_type == 'property' or trait_type == 'morph_set':
+        result = 'prop_slider_type'
+    elif trait_type == 'mat_set' or trait_type == 'mesh_set' or trait_type == 'anim':
+        result = 'prop_selector_type'
+    elif trait_type == 'mesh':
+        result = 'prop_toggle_type'
+    elif trait_type == 'mat_prop':
+        result = 'prop_multi_widget_type'
+
+    return result
 
 class HVYM_DataItem(bpy.types.PropertyGroup):
     """Group of properties representing various meta data."""
@@ -1262,11 +1282,33 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
             update=onUpdate)
 
     prop_slider_type: bpy.props.EnumProperty(
-            name='Widget Type',
+            name='Widget',
             description ="Set ui widget for property.",
             items=(('value_meter', 'Text Box Meter', ""),
                 ('slider', 'Slider', ""),
-                ('meter', 'Meter', ""),),
+                ('meter', 'Meter', ""),
+                ('none', 'None', ""),),
+            update=onUpdate)
+
+    prop_selector_type: bpy.props.EnumProperty(
+            name='Widget',
+            description ="Set ui selector widget for property.",
+            items=(('selector', 'Selector', ""),
+                ('none', 'None', ""),),
+            update=onUpdate)
+
+    prop_toggle_type: bpy.props.EnumProperty(
+            name='Widget',
+            description ="Set ui toggle widget for property.",
+            items=(('toggle', 'Toggle', ""),
+                ('none', 'None', ""),),
+            update=onUpdate)
+
+    prop_multi_widget_type: bpy.props.EnumProperty(
+            name='Multi-Widget',
+            description ="Set ui multi widget for property.",
+            items=(('multi_widget', 'Multi-Widget', ""),
+                ('none', 'None', ""),),
             update=onUpdate)
 
     prop_action_type: bpy.props.EnumProperty(
@@ -2518,11 +2560,10 @@ class HVYM_DataPanel(bpy.types.Panel):
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
             row = box.row()
             row.prop(item, "type")
-            row.prop(item, "widget")
+            row.prop(item, GetPropWidgetType(item.trait_type))
             row = box.row()
             if item.trait_type == 'property':
                 row.prop(item, "prop_value_type")
-                row.prop(item, "prop_slider_type")
                 row.prop(item, "prop_action_type")
                 row = box.row()
                 if item.prop_value_type == 'Int':
