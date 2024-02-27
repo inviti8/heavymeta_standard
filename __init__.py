@@ -737,7 +737,7 @@ def updateNftData(context):
     valProps = {}
     meshProps = {}
     meshSets = {}
-    morphProps = {}
+    morphSets = {}
     animProps = {}
     materials = {}
     materialSets = {}
@@ -814,7 +814,7 @@ def updateNftData(context):
                 morph_obj['set'] = morph_sets
                 morph_obj['widget_type'] = hvym_meta_data[i].prop_multi_widget_type
                 morph_obj['widget'] = hvym_meta_data[i].widget
-                morphProps[hvym_meta_data[i].type] = morph_obj
+                morphSets[hvym_meta_data[i].type] = morph_obj
 
         elif hvym_meta_data[i].trait_type == 'anim':
             anim_obj = {
@@ -890,7 +890,7 @@ def updateNftData(context):
                                                                                 'valProps': valProps,
                                                                                 'meshProps': meshProps,
                                                                                 'meshSets': meshSets,
-                                                                                'morphProps': morphProps,
+                                                                                'morphSets': morphSets,
                                                                                 'animProps': animProps,
                                                                                 'matProps': materials,
                                                                                 'materialSets': materialSets,
@@ -3279,10 +3279,10 @@ def create_collections(gltf):
                 for t in meshProps:
                     set_col_data('mesh', t, meshProps)
 
-            if 'morphProps' in ext_data[id].keys():
-                morphProps = ext_data[id]['morphProps']
-                for t in morphProps:
-                    set_col_data('morph', t, morphProps)
+            if 'morphSets' in ext_data[id].keys():
+                morphSets = ext_data[id]['morphSets']
+                for t in morphSets:
+                    set_col_data('morph', t, morphSets)
 
             if 'animProps' in ext_data[id].keys():
                 animProps = ext_data[id]['animProps']
