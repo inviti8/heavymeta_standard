@@ -678,6 +678,20 @@ def lockObj(obj):
         obj.lock_rotation[i] = True
         obj.lock_scale[i] = True
 
+def UpdateAnimData(context):
+    hvym_meta_data = context.collection.hvym_meta_data
+
+    for i in range(len(hvym_meta_data)):
+        if hvym_meta_data[i].trait_type == 'anim':
+            model = hvym_meta_data[i].model_ref
+            print(model)
+            if model is not None:
+                print(model.animation_data.action_blend_type)
+                name = hvym_meta_data[i].type
+                hvym_meta_data[i].anim_start = bpy.data.actions[name].frame_start
+                hvym_meta_data[i].anim_end = bpy.data.actions[name].frame_end
+                hvym_meta_data[i].anim_blending = model.animation_data.action_blend_type
+
 
 def RebuildMaterialSets(context):
     hvym_meta_data = context.collection.hvym_meta_data
@@ -818,10 +832,16 @@ def updateNftData(context):
 
         elif hvym_meta_data[i].trait_type == 'anim':
             anim_obj = {
+                        'name': hvym_meta_data[i].type,
                         'loop': hvym_meta_data[i].anim_loop,
+                        'start': hvym_meta_data[i].anim_start,
+                        'end': hvym_meta_data[i].anim_end,
+                        'blending': hvym_meta_data[i].model_ref.animation_data.action_blend_type,
+                        'model_ref': hvym_meta_data[i].model_ref,
                         'widget_type': hvym_meta_data[i].prop_selector_type,
                         'widget': hvym_meta_data[i].widget
                         }
+
             animProps[hvym_meta_data[i].type] = anim_obj;
 
         elif hvym_meta_data[i].trait_type == 'mat_prop':
@@ -1238,15 +1258,17 @@ class HVYM_UL_MorphSetList(bpy.types.UIList):
             layout.prop(item, "float_min")
             layout.prop(item, "float_max")
 
-def GetPropWidgetType(trait_type):
+def GetPropWidgetType(item):
     result = 'meter'
-    if trait_type == 'property':
+    if item.trait_type == 'property':
         result = 'prop_slider_type'
-    elif trait_type == 'mat_set' or trait_type == 'mesh_set' or trait_type == 'anim':
+    elif item.trait_type == 'mat_set' or item.trait_type == 'mesh_set' or item.trait_type == 'anim':
         result = 'prop_selector_type'
-    elif trait_type == 'mesh':
+        if item.trait_type == 'anim' and item.anim_loop == 'Clamp':
+            result = 'prop_slider_type'
+    elif item.trait_type == 'mesh':
         result = 'prop_toggle_type'
-    elif trait_type == 'mat_prop' or trait_type == 'morph_set':
+    elif item.trait_type == 'mat_prop' or item.trait_type == 'morph_set':
         result = 'prop_multi_widget_type'
 
     return result
@@ -1375,10 +1397,30 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
             name='Loop',
             description ="Animation Looping.",
             items=(('NONE', 'None', ""),
-                ('LoopOnce', 'Loop Once', ""),
                 ('LoopRepeat', 'Loop Forever', ""),
+                ('LoopOnce', 'Loop Once', ""),
+                ('Clamp', 'Clamp', ""),
                 ('PingPongRepeat', 'Ping Pong', ""),),
             update=onUpdate)
+
+
+    anim_start: bpy.props.FloatProperty(
+           name="Frame Start",
+           description="Start frame of animation.",
+           default=0,
+           update=onUpdate)
+
+    anim_end: bpy.props.FloatProperty(
+           name="Frame End",
+           description="End frame of animation.",
+           default=0,
+           update=onUpdate)
+
+    anim_blending: bpy.props.StringProperty(
+           name="Blending",
+           description="Blending mode for animation.",
+           default="additive",
+           update=onUpdate)
 
     mat_type: bpy.props.EnumProperty(
             name='Material Type',
@@ -1833,7 +1875,12 @@ class HVYM_LIST_NewAnimItem(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'anim'
         item.type = '*'
-        item.values = 'Animation'
+        item.values = 'Animation Property'
+        item.anim_start = active_action.frame_start
+        item.anim_end = active_action.frame_end
+        item.anim_blending = ad.action_blend_type
+        item.model_ref = context.active_object
+        UpdateAnimData(context)
         updateNftData(context)
 
         return{'FINISHED'}
@@ -2558,7 +2605,7 @@ class HVYM_DataPanel(bpy.types.Panel):
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
             row = box.row()
             row.prop(item, "type")
-            row.prop(item, GetPropWidgetType(item.trait_type))
+            row.prop(item, GetPropWidgetType(item))
             row = box.row()
             if item.trait_type == 'property':
                 row.prop(item, "prop_value_type")
@@ -2959,25 +3006,30 @@ class HVYM_AddAnim(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None
+        ob = context.active_object
+        return (ob is not None and ob.animation_data.action is not None)
 
     def execute(self, context):
-        ob = context.object
+        ob = context.active_object
         ad = ob.animation_data
-        active_track = None
+        active_action = ob.animation_data.action
 
-        if ad:
-            for i, track in enumerate(ad.nla_tracks):
-                if track.active:
-                    active_track = track
-                    break
+        if ob != None and active_action != None and has_hvym_data('anim', active_action.name) == False:
+            item = context.collection.hvym_meta_data.add()
+            item.trait_type = 'anim'
+            item.values = 'Animation Property'
+            item.type = active_action.name
+            item.anim_start = active_action.frame_start
+            item.anim_end = active_action.frame_end
+            item.anim_blending = ad.action_blend_type
+            item.model_ref = ob
+            UpdateAnimData(context)
+            updateNftData(context)
 
-        if active_track != None and has_hvym_data('anim', active_track.name) == False:
-                item = context.collection.hvym_meta_data.add()
-                item.trait_type = 'anim'
-                item.type = active_track.name
         else:
             print("Item already exists in data.")
+
+        return {'FINISHED'}
 
 
 class HVYM_AddMaterial(bpy.types.Operator):
