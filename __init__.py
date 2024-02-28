@@ -842,7 +842,7 @@ def updateNftData(context):
                         'end': hvym_meta_data[i].anim_end,
                         'blending': hvym_meta_data[i].model_ref.animation_data.action_blend_type,
                         'model_ref': hvym_meta_data[i].model_ref,
-                        'widget_type': hvym_meta_data[i].prop_selector_type,
+                        'widget_type': widget_type,
                         'widget': hvym_meta_data[i].widget
                         }
 
