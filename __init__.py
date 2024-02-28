@@ -831,6 +831,10 @@ def updateNftData(context):
                 morphSets[hvym_meta_data[i].type] = morph_obj
 
         elif hvym_meta_data[i].trait_type == 'anim':
+            widget_type = hvym_meta_data[i].prop_toggle_type
+            if hvym_meta_data[i].prop_selector_type == 'Clamp':
+                widget_type = hvym_meta_data[i].prop_slider_type
+
             anim_obj = {
                         'name': hvym_meta_data[i].type,
                         'loop': hvym_meta_data[i].anim_loop,
@@ -1262,9 +1266,11 @@ def GetPropWidgetType(item):
     result = 'meter'
     if item.trait_type == 'property':
         result = 'prop_slider_type'
-    elif item.trait_type == 'mat_set' or item.trait_type == 'mesh_set' or item.trait_type == 'anim':
+    elif item.trait_type == 'mat_set' or item.trait_type == 'mesh_set':
         result = 'prop_selector_type'
-        if item.trait_type == 'anim' and item.anim_loop == 'Clamp':
+    elif item.trait_type == 'anim':
+        result = 'prop_toggle_type'
+        if item.anim_loop == 'Clamp':
             result = 'prop_slider_type'
     elif item.trait_type == 'mesh':
         result = 'prop_toggle_type'
