@@ -832,8 +832,8 @@ def updateNftData(context):
 
         elif hvym_meta_data[i].trait_type == 'anim':
             widget_type = hvym_meta_data[i].prop_toggle_type
-            if hvym_meta_data[i].prop_selector_type == 'Clamp' or hvym_meta_data[i].prop_selector_type == 'Seek':
-                widget_type = hvym_meta_data[i].prop_slider_type
+            if hvym_meta_data[i].anim_loop == 'Clamp':
+                widget_type = hvym_meta_data[i].prop_anim_slider_type
 
             anim_obj = {
                         'name': hvym_meta_data[i].type,
@@ -1270,8 +1270,8 @@ def GetPropWidgetType(item):
         result = 'prop_selector_type'
     elif item.trait_type == 'anim':
         result = 'prop_toggle_type'
-        if item.anim_loop == 'Clamp' or item.anim_loop == 'Seek':
-            result = 'prop_slider_type'
+        if item.anim_loop == 'Clamp':
+            result = 'prop_anim_slider_type'
     elif item.trait_type == 'mesh':
         result = 'prop_toggle_type'
     elif item.trait_type == 'mat_prop' or item.trait_type == 'morph_set':
@@ -1313,6 +1313,13 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
             items=(('value_meter', 'Text Box Meter', ""),
                 ('slider', 'Slider', ""),
                 ('meter', 'Meter', ""),
+                ('none', 'None', ""),),
+            update=onUpdate)
+
+    prop_anim_slider_type: bpy.props.EnumProperty(
+            name='Widget',
+            description ="Set ui widget for property.",
+            items=(('slider', 'Slider', ""),
                 ('none', 'None', ""),),
             update=onUpdate)
 
@@ -1407,8 +1414,7 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
                 ('LoopOnce', 'Loop Once', ""),
                 ('ClampToggle', 'Clamp Toggle', ""),
                 ('Clamp', 'Clamp', ""),
-                ('PingPong', 'Ping Pong', ""),
-                ('Seek', 'Seek', ""),),
+                ('PingPong', 'Ping Pong', ""),),
             update=onUpdate)
 
 
