@@ -832,7 +832,7 @@ def updateNftData(context):
 
         elif hvym_meta_data[i].trait_type == 'anim':
             widget_type = hvym_meta_data[i].prop_toggle_type
-            if hvym_meta_data[i].prop_selector_type == 'Clamp':
+            if hvym_meta_data[i].prop_selector_type == 'Clamp' or hvym_meta_data[i].prop_selector_type == 'Seek':
                 widget_type = hvym_meta_data[i].prop_slider_type
 
             anim_obj = {
@@ -1270,7 +1270,7 @@ def GetPropWidgetType(item):
         result = 'prop_selector_type'
     elif item.trait_type == 'anim':
         result = 'prop_toggle_type'
-        if item.anim_loop == 'Clamp':
+        if item.anim_loop == 'Clamp' or item.anim_loop == 'Seek':
             result = 'prop_slider_type'
     elif item.trait_type == 'mesh':
         result = 'prop_toggle_type'
@@ -1405,8 +1405,10 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
             items=(('NONE', 'None', ""),
                 ('LoopRepeat', 'Loop Forever', ""),
                 ('LoopOnce', 'Loop Once', ""),
+                ('ClampToggle', 'Clamp Toggle', ""),
                 ('Clamp', 'Clamp', ""),
-                ('PingPongRepeat', 'Ping Pong', ""),),
+                ('PingPong', 'Ping Pong', ""),
+                ('Seek', 'Seek', ""),),
             update=onUpdate)
 
 
