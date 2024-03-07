@@ -841,6 +841,7 @@ def updateNftData(context):
                         'start': hvym_meta_data[i].anim_start,
                         'end': hvym_meta_data[i].anim_end,
                         'blending': hvym_meta_data[i].model_ref.animation_data.action_blend_type,
+                        'weight': hvym_meta_data[i].anim_weight,
                         'model_ref': hvym_meta_data[i].model_ref,
                         'widget_type': widget_type,
                         'widget': hvym_meta_data[i].widget
@@ -1434,6 +1435,14 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            name="Blending",
            description="Blending mode for animation.",
            default="additive",
+           update=onUpdate)
+
+    anim_weight: bpy.props.FloatProperty(
+           name="Weight",
+           description="Weight for animation value.",
+           default=1.0,
+           min=0,
+           max=1.0,
            update=onUpdate)
 
     mat_type: bpy.props.EnumProperty(
@@ -2652,6 +2661,7 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row.operator('hvym_meta_data.delete_mesh_set_item', text='', icon='REMOVE')
             elif item.trait_type == 'anim':
                 row.prop(item, "anim_loop")
+                row.prop(item, "anim_weight")
             elif item.trait_type == 'mat_prop':
                 row.prop(item, "mat_ref")
                 row.prop(item, "mat_type")
@@ -3406,19 +3416,14 @@ class glTF2ExportUserExtension:
         if len(bpy.data.collections) == 0:
             return
 
-        # Compile data objects in sets by collection
-        mappings = []
-        for col in bpy.data.collections:
-            mappings.append(col.name)
+        gltf2_object.extensions[glTF_extension_name] = self.Extension(
+            name=glTF_extension_name,
+            extension={
+                "foo": 1.5
+            },
+            required=False
+        )
 
-        # if bpy.types.Scene.hvym_collections_data.enabled:
-        #     if gltf2_object.extensions is None:
-        #         gltf2_object.extensions = {glTF_extension_name : None}
-        #     gltf2_object.extensions[glTF_extension_name] = self.Extension(
-        #         name = glTF_extension_name,
-        #         extension = mappings,
-        #         required = False
-        #     )
 
     def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
 
