@@ -756,7 +756,7 @@ def updateNftData(context):
     materials = {}
     materialSets = {}
     nodes = []
-    menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None}
+    menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None, 'alignment': None}
     prop_label_data = None
 
     for i in range(len(hvym_meta_data)):
@@ -892,9 +892,12 @@ def updateNftData(context):
         col_id = data['collection_id']
         if col_id == context.collection.hvym_id:
             menu_data['name'] = data.menu_name
+            menu_data['alignment'] = data.menu_alignment
             menu_data['primary_color'] = color_to_hex(data.menu_primary_color)
             menu_data['secondary_color'] = color_to_hex(data.menu_secondary_color)
             menu_data['text_color'] = color_to_hex(data.menu_text_color)
+
+    print(menu_data)
         
 
     context.scene.hvym_collections_data.nftData['contract'] =                   {'nftType': context.scene.hvym_nft_type,
@@ -1115,6 +1118,14 @@ class HVYM_MenuDataItem(bpy.types.PropertyGroup):
            name="Menu Index",
            default=-1,
            update=onUpdate)
+
+    menu_alignment: bpy.props.EnumProperty(
+            name='Alignment',
+            description ="Set alignment for menu relative to transform.",
+            items=(('CENTER', 'Center', ""),
+                ('LEFT', 'Left', ""),
+                ('RIGHT', 'Right', ""),),
+            update=onUpdate)
 
     no_update: bpy.props.BoolProperty(
            name="Flag to stop auto update in the case of needing to update list values",
@@ -2554,6 +2565,7 @@ class HVYM_Menu_Transform_Panel(bpy.types.Panel):
         if scn.hvym_menu_meta_data and obj.hvym_menu_index != None:
             item = scn.hvym_menu_meta_data[obj.hvym_menu_index]
             row.prop(item, "menu_name")
+            row.prop(item, "menu_alignment")
             box = col.row()
             row = box.row()
             row.prop(item, "menu_primary_color")
