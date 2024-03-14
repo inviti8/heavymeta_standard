@@ -767,7 +767,7 @@ def updateNftData(context):
             'prop_slider_type': hvym_meta_data[i].prop_slider_type,
             'prop_action_type': hvym_meta_data[i].prop_action_type,
             'widget_type': hvym_meta_data[i].prop_slider_type,
-            'widget': hvym_meta_data[i].widget
+            'show': hvym_meta_data[i].show
             }
 
         if hvym_meta_data[i].prop_value_type == 'Float':
@@ -778,7 +778,7 @@ def updateNftData(context):
                 'prop_slider_type': hvym_meta_data[i].prop_slider_type,
                 'prop_action_type': hvym_meta_data[i].prop_action_type,
                 'widget_type': hvym_meta_data[i].prop_slider_type,
-                'widget': hvym_meta_data[i].widget
+                'show': hvym_meta_data[i].show
                 }
 
         prop_label_data = {'value_prop_label': hvym_meta_data[i].value_prop_label, 'mesh_prop_label': hvym_meta_data[i].mesh_prop_label, 'mat_prop_label': hvym_meta_data[i].mat_prop_label, 'anim_prop_label': hvym_meta_data[i].anim_prop_label, 'mesh_set_label': hvym_meta_data[i].mesh_set_label, 'morph_set_label': hvym_meta_data[i].morph_set_label, 'mat_set_label': hvym_meta_data[i].mat_set_label}
@@ -792,7 +792,7 @@ def updateNftData(context):
                             'name': hvym_meta_data[i].model_ref.name,
                             'visible': hvym_meta_data[i].visible,
                             'widget_type': hvym_meta_data[i].prop_toggle_type,
-                            'widget': hvym_meta_data[i].widget
+                            'show': hvym_meta_data[i].show
                             }
 
                 meshProps[hvym_meta_data[i].type] = mesh_data
@@ -809,7 +809,7 @@ def updateNftData(context):
                     mesh_set_data.append(mesh_data)
             mesh_set_obj['set'] = mesh_set_data
             mesh_set_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
-            mesh_set_obj['widget'] = hvym_meta_data[i].widget
+            mesh_set_obj['show'] = hvym_meta_data[i].show
             meshSets[hvym_meta_data[i].type] = mesh_set_obj
 
         elif hvym_meta_data[i].trait_type == 'morph_set':
@@ -827,7 +827,7 @@ def updateNftData(context):
                 morph_obj['model_ref'] = hvym_meta_data[i].model_ref
                 morph_obj['set'] = morph_sets
                 morph_obj['widget_type'] = hvym_meta_data[i].prop_multi_widget_type
-                morph_obj['widget'] = hvym_meta_data[i].widget
+                morph_obj['show'] = hvym_meta_data[i].show
                 morphSets[hvym_meta_data[i].type] = morph_obj
 
         elif hvym_meta_data[i].trait_type == 'anim':
@@ -844,7 +844,7 @@ def updateNftData(context):
                         'weight': hvym_meta_data[i].anim_weight,
                         'model_ref': hvym_meta_data[i].model_ref,
                         'widget_type': widget_type,
-                        'widget': hvym_meta_data[i].widget
+                        'show': hvym_meta_data[i].show
                         }
 
             animProps[hvym_meta_data[i].type] = anim_obj;
@@ -859,7 +859,7 @@ def updateNftData(context):
                             'irridescent': hvym_meta_data[i].mat_irridescent,
                             'sheen': hvym_meta_data[i].mat_sheen,
                             'widget_type': hvym_meta_data[i].prop_multi_widget_type,
-                            'widget': hvym_meta_data[i].widget
+                            'show': hvym_meta_data[i].show
                             }
                 materials[hvym_meta_data[i].type] = mat_data
 
@@ -879,7 +879,7 @@ def updateNftData(context):
             mat_obj['set'] = mat_sets
             mat_obj['material_id'] = hvym_meta_data[i].material_id
             mat_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
-            mat_obj['widget'] = hvym_meta_data[i].widget
+            mat_obj['show'] = hvym_meta_data[i].show
             materialSets[hvym_meta_data[i].type] = mat_obj
             print(materialSets[hvym_meta_data[i].type])
 
@@ -896,11 +896,11 @@ def updateNftData(context):
             menu_data['primary_color'] = color_to_hex(data.menu_primary_color)
             menu_data['secondary_color'] = color_to_hex(data.menu_secondary_color)
             menu_data['text_color'] = color_to_hex(data.menu_text_color)
-
-    print(menu_data)
+            break
         
 
     context.scene.hvym_collections_data.nftData['contract'] =                   {'nftType': context.scene.hvym_nft_type,
+                                                                                'nftChain': context.scene.hvym_nft_chain,
                                                                                 'nftPrice': round(context.scene.hvym_nft_price, 4),
                                                                                 'premNftPrice': round(context.scene.hvym_prem_nft_price, 4),
                                                                                 'maxSupply': context.scene.hvym_max_supply,
@@ -908,9 +908,7 @@ def updateNftData(context):
                                                                                 'minterName': context.scene.hvym_minter_name,
                                                                                 'minterDesc': context.scene.hvym_minter_description,
                                                                                 'minterImage': context.scene.hvym_minter_image,
-                                                                                'minterVersion': context.scene.hvym_minter_version,
-                                                                                'contractABI': context.scene.hvym_contract_abi,
-                                                                                'contractAddress': context.scene.hvym_contract_address
+                                                                                'minterVersion': context.scene.hvym_minter_version
                                                                                 }
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'collectionName': context.collection.name,
@@ -990,6 +988,20 @@ def setEnum(tup, set_enum, default_enum):
     return result
 
 
+def nftChains(self, context):
+    #get the default enum, used to set enum on import
+    first_enum = context.collection.hvym_nft_chain_enum 
+
+    tup = (
+            ('ICP', "Internet Computer", ""),
+            ('AR', "Aweave", ""),
+            ('BTCL', "Bitcoin Lighning", ""))
+
+    result = setEnum(tup, first_enum, 'ICP')
+
+    return result
+
+
 def nftTypes(self, context):
     #get the default enum, used to set enum on import
     first_enum = context.collection.hvym_nft_type_enum 
@@ -1036,6 +1048,11 @@ def minterTypes(self, context):
 
 
 PROPS = [
+    ('hvym_nft_chain', bpy.props.EnumProperty(
+        name='Chain',
+        items=nftChains,
+        description ="Chain to mint to, see docs for more detail.",
+        update=onUpdate)),
     ('hvym_nft_type', bpy.props.EnumProperty(
         name='NFT-Type',
         items=nftTypes,
@@ -1053,11 +1070,7 @@ PROPS = [
     ('hvym_minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
-    ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
-    ('hvym_contract_abi', bpy.props.StringProperty(name='ABI', default='', description ="ABI for compiled contract.", update=onUpdate)),
-    ('hvym_contract_address', bpy.props.StringProperty(name='Address', default='', description ="The address for the contract.", update=onUpdate)),
-    ('hvym_pinata_jwt', bpy.props.StringProperty(name='Pinata-JWT', default='', description ="JWT key for uploads.", update=onUpdate)),
-    ('hvym_pinata_gateway', bpy.props.StringProperty(name='Pinata-Gateway', default='', description ="Pinata Gatway url.", update=onUpdate))
+    ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate))
 ]
 
 COL_PROPS = [
@@ -1306,9 +1319,9 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
-    widget: bpy.props.BoolProperty(
-           name="Is Widget",
-           description="Create Widget for this data.",
+    show: bpy.props.BoolProperty(
+           name="Show Widget",
+           description="If true widget should be rendered.",
            default=True,
            update=onUpdate)
 
@@ -1361,6 +1374,7 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
             description ="Set property action type.",
             items=(('Immutable', 'Immutable', ""),
                 ('Incremental', 'Incremental', ""),
+                ('Decremental', 'Decremental', ""),
                 ('Mintable', 'Mintable', ""),),
             update=onUpdate)
 
@@ -2608,12 +2622,6 @@ class HVYM_DataPanel(bpy.types.Panel):
         row = box.row()
         row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
         ctx = context.collection
-        # for (prop_name, _) in COL_PROPS:
-        #     row = col.row()
-        #     if prop_name == 'minter_version':
-        #         row = row.row()
-        #         row.enabled = ctx.add_version
-        #     row.prop(ctx, prop_name)
         row.separator()
         box = col.box()
         row = box.row()
@@ -2751,8 +2759,9 @@ class HVYM_ScenePanel(bpy.types.Panel):
             if prop_name == 'minter_version':
                 row = row.row()
                 row.enabled = context.scene.add_version
-            if prop_name != 'hvym_pinata_jwt' and prop_name != 'hvym_pinata_gateway' and prop_name != 'hvym_contract_abi' and prop_name != 'hvym_contract_address':
-                row.prop(context.scene, prop_name)
+            if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
+                if prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price':
+                    row.prop(context.scene, prop_name)
         row = col.row()
         row.separator()
         box = col.box()
@@ -2761,13 +2770,6 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row = box.row()
         row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
         row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
-        box = col.box()
-        row = box.row()
-        row.label(text="Pinata:")
-        for (prop_name, _) in PROPS:
-            if prop_name == 'hvym_pinata_jwt' or prop_name == 'hvym_pinata_gateway':
-                row = box.row()
-                row.prop(context.scene, prop_name)
         box = col.box()
         row = box.row()
         row.separator()
@@ -3251,6 +3253,7 @@ def register():
     bpy.types.Object.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
     bpy.types.Object.hvym_menu_id = bpy.props.StringProperty(name = "Unique id for menu derived from collection id", default='')
     bpy.types.Collection.hvym_list_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data", default = 0)
+    bpy.types.Collection.hvym_nft_chain_enum = bpy.props.StringProperty(name = "Used to set chain enum on import", default='ICP')
     bpy.types.Collection.hvym_nft_type_enum = bpy.props.StringProperty(name = "Used to set nft type enum on import", default='HVYC')
     bpy.types.Collection.hvym_col_type_enum = bpy.props.StringProperty(name = "Used to set collection type enum on import", default='multi')
     bpy.types.Collection.hvym_minter_type_enum = bpy.props.StringProperty(name = "Used to set minter type enum on import", default='payable')
@@ -3277,6 +3280,7 @@ def unregister():
     del bpy.types.Object.hvym_menu_index
     del bpy.types.Object.hvym_menu_id
     del bpy.types.Collection.hvym_list_index
+    del bpy.types.Collection.hvym_nft_chain_enum
     del bpy.types.Collection.hvym_nft_type_enum
     del bpy.types.Collection.hvym_col_type_enum
     del bpy.types.Collection.hvym_minter_type_enum
@@ -3334,7 +3338,6 @@ def create_collections(gltf):
             bpy.context.scene.hvym_minter_description = ext_data[id]['minterDesc']
             bpy.context.scene.hvym_minter_image = ext_data[id]['minterImage']
             bpy.context.scene.hvym_minter_version = ext_data[id]['minterVersion']
-            bpy.context.scene.hvym_contract_abi = ext_data[id]['contractABI']
             bpy.context.scene.hvym_contract_address = ext_data[id]['contractAddress']
 
             if bpy.context.scene.hvym_minter_version > 0:
