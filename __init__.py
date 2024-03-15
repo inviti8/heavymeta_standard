@@ -1069,6 +1069,7 @@ PROPS = [
     ('hvym_minter_name', bpy.props.StringProperty(name='Minter-Name', default='', description ="Name of minter.", update=onUpdate)),
     ('hvym_minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
+    ('hvym_collection_name', bpy.props.StringProperty(name='Collection-Name', default='NOT-SET!!!!', description ="Collection name for asset deployement.", update=onUpdate)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
     ('hvym_export_path', bpy.props.StringProperty(name='Export-Path', subtype='FILE_PATH', default='', description ="Gltf export path for debug & deploy.", update=onUpdate)),
@@ -2266,15 +2267,11 @@ class HVYM_DebugModel(bpy.types.Operator):
 
     def execute(self, context):
         print("Debug Model")
-        print(bpy.context.scene.hvym_export_path)
-        print(bpy.data.filepath)
         file_path = bpy.data.filepath
         file_name = Path(file_path).stem
-        print(file_name)
         out = os.path.join(bpy.path.abspath(bpy.context.scene.hvym_export_path), file_name)
-        print(bpy.path.abspath(bpy.context.scene.hvym_export_path))
-        x = bpy.ops.export_scene.gltf(filepath=out,  check_existing=False, export_format='GLB')
-        #print(x)
+
+        bpy.ops.export_scene.gltf(filepath=out,  check_existing=False, export_format='GLB')
         return {'FINISHED'}
 
 
