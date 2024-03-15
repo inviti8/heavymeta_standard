@@ -43,7 +43,6 @@ bl_info = {
 import collections
 from configparser import InterpolationDepthError
 from contextvars import Context
-from socket import has_dualstack_ipv6
 from time import time
 import bpy
 import re
@@ -71,6 +70,7 @@ from bpy.types import (Panel,
                        GizmoGroup,)
 from bpy.props import (FloatVectorProperty)
 from bpy_extras.io_utils import ExportHelper
+from pathlib import Path
 
 preview_collections = {}
 
@@ -1070,7 +1070,8 @@ PROPS = [
     ('hvym_minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
-    ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate))
+    ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
+    ('hvym_export_path', bpy.props.StringProperty(name='Export-Path', subtype='FILE_PATH', default='', description ="Gltf export path for debug & deploy.", update=onUpdate)),
 ]
 
 COL_PROPS = [
@@ -1375,7 +1376,14 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
             items=(('Immutable', 'Immutable', ""),
                 ('Incremental', 'Incremental', ""),
                 ('Decremental', 'Decremental', ""),
-                ('Mintable', 'Mintable', ""),),
+                ('Bicremental', 'Bicremental', ""),),
+            update=onUpdate)
+
+    prop_use_case: bpy.props.EnumProperty(
+            name='Action Type',
+            description ="Set property action type.",
+            items=(('stats', 'Stats', ""),
+                ('appearence', 'Appearence', ""),),
             update=onUpdate)
 
     values: bpy.props.StringProperty(
@@ -2258,6 +2266,15 @@ class HVYM_DebugModel(bpy.types.Operator):
 
     def execute(self, context):
         print("Debug Model")
+        print(bpy.context.scene.hvym_export_path)
+        print(bpy.data.filepath)
+        file_path = bpy.data.filepath
+        file_name = Path(file_path).stem
+        print(file_name)
+        out = os.path.join(bpy.path.abspath(bpy.context.scene.hvym_export_path), file_name)
+        print(bpy.path.abspath(bpy.context.scene.hvym_export_path))
+        x = bpy.ops.export_scene.gltf(filepath=out,  check_existing=False, export_format='GLB')
+        #print(x)
         return {'FINISHED'}
 
 
@@ -2649,6 +2666,7 @@ class HVYM_DataPanel(bpy.types.Panel):
             row = box.row()
             row.prop(item, "type")
             row.prop(item, GetPropWidgetType(item))
+            row.prop(item, "show")
             row = box.row()
             if item.trait_type == 'property':
                 row.prop(item, "prop_value_type")
@@ -2760,7 +2778,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
                 row = row.row()
                 row.enabled = context.scene.add_version
             if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
-                if prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price':
+                if prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_path':
                     row.prop(context.scene, prop_name)
         row = col.row()
         row.separator()
@@ -2770,6 +2788,10 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row = box.row()
         row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
         row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
+        box = col.box()
+        row = box.row()
+        if prop_name == 'hvym_export_path':
+            row.prop(context.scene, prop_name)
         box = col.box()
         row = box.row()
         row.separator()
