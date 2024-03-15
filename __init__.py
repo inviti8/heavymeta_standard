@@ -49,6 +49,7 @@ import re
 import random
 import math
 import os
+import subprocess
 from os import path
 from typing import Dict
 from bpy.app.handlers import persistent
@@ -75,6 +76,24 @@ from pathlib import Path
 preview_collections = {}
 
 glTF_extension_name = "HVYM_nft_data"
+
+SCRIPT_PATH = bpy.utils.user_resource('SCRIPTS')
+ADDON_PATH = os.path.join(SCRIPT_PATH, 'addons', 'heavymeta_standard')
+CLI = os.path.join(ADDON_PATH, 'heavymeta_cli')
+
+ICP_PATH = 'NOT SET'
+
+if os.path.isfile(CLI):
+    result = subprocess.run([CLI, 'icp-project-path'], capture_output=True, text=True, check=False)
+
+    if result.returncode != 0:
+        print("Command failed with error:")
+        print(result.stderr)
+        ICP_PATH = result.stderr
+    else:
+        print("Command was successful, output is:")
+        print(result.stdout)
+        ICP_PATH = result.stdout
 
 # Custom hooks. Defined here and registered/unregistered in register()/unregister().
 # Note: If other installed addon have custom hooks on the same way at the same places
@@ -632,6 +651,24 @@ class HVYM_MenuTransformGroup(GizmoGroup):
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
 # -------------------------------------------------------------------
+def call_cli(call_arr):
+    result = None
+    if os.path.isfile(CLI):
+        cli_call = [CLI]
+        cli_call = cli_call+call_arr
+        call = subprocess.run(cli_call, capture_output=True, text=True, check=False)
+
+        if call.returncode != 0:
+            print("Command failed with error:")
+            print(result.stderr)
+            result = call.stderr
+        else:
+            print("Command was successful, output is:")
+            print(call.stdout)
+            result = call.stdout
+
+    return result
+
 def random_id(length = 8):
     """ Generates a random alphanumeric id string.
     """
@@ -1069,7 +1106,8 @@ PROPS = [
     ('hvym_minter_name', bpy.props.StringProperty(name='Minter-Name', default='', description ="Name of minter.", update=onUpdate)),
     ('hvym_minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
-    ('hvym_collection_name', bpy.props.StringProperty(name='Collection-Name', default='NOT-SET!!!!', description ="Collection name for asset deployement.", update=onUpdate)),
+    ('hvym_project_name', bpy.props.StringProperty(name='Project-Name', default='NOT-SET!!!!', description ="Collection name for asset deployement.", update=onUpdate)),
+    ('hvym_project_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current working project path.", update=onUpdate)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
     ('hvym_export_path', bpy.props.StringProperty(name='Export-Path', subtype='FILE_PATH', default='', description ="Gltf export path for debug & deploy.", update=onUpdate)),
@@ -2270,9 +2308,52 @@ class HVYM_DebugModel(bpy.types.Operator):
         file_path = bpy.data.filepath
         file_name = Path(file_path).stem
         out = os.path.join(bpy.path.abspath(bpy.context.scene.hvym_export_path), file_name)
+        cli = os.path.join(ADDON_PATH, 'heavymeta_cli')
+        #subprocess.run([cli, 'icp-project-path'], check=True)
+        result = subprocess.run([cli, 'icp-project-path'], capture_output=True, text=True, check=False)
 
-        bpy.ops.export_scene.gltf(filepath=out,  check_existing=False, export_format='GLB')
+        if result.returncode != 0:
+            print("Command failed with error:")
+            print(result.stderr)
+        else:
+            print("Command was successful, output is:")
+            print(result.stdout)
+        #bpy.ops.export_scene.gltf(filepath=out,  check_existing=False, export_format='GLB')
         return {'FINISHED'}
+
+class HVYM_SetProject(bpy.types.Operator):
+    bl_idname = "hvym_set.project"
+    bl_label = "Set Heavymeta project"
+    bl_description ="Sets the current working project for the heavymeta cli."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Set Project")
+        print(context.scene.hvym_project_name)
+        if context.scene.hvym_nft_chain == 'ICP':
+            call_cli(['icp-project', context.scene.hvym_project_name])
+            ICP_PATH = call_cli(['icp-project-path'])
+            context.scene.hvym_project_path = ICP_PATH
+
+        return {'FINISHED'}
+
+class HVYM_SetConfirmDialog(bpy.types.Operator):
+    """Sets the current Heavymeta prject based on settings."""
+    bl_idname = "hvym_set.project_confirm_dialog"
+    bl_label = "Set the current working project?"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        self.report({'INFO'}, "YES")
+        bpy.ops.hvym_set.project()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
 
 
 class HVYM_ExportHelper(bpy.types.Operator, ExportHelper):
@@ -2769,13 +2850,16 @@ class HVYM_ScenePanel(bpy.types.Panel):
         box = col.row()
         row = box.row()
         row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
+        box = col.row()
+        row = box.row()
+        row.separator()
         for (prop_name, _) in PROPS:
             row = col.row()
             if prop_name == 'minter_version':
                 row = row.row()
                 row.enabled = context.scene.add_version
             if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
-                if prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_path':
+                if prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path':
                     row.prop(context.scene, prop_name)
         row = col.row()
         row.separator()
@@ -2799,11 +2883,18 @@ class HVYM_ScenePanel(bpy.types.Panel):
         # row.operator('hvym_deploy.confirm_nft_deploy_dialog', text="Deploy NFT", icon="URL")
         box = col.box()
         row = box.row()
-        row.label(text="Contract Info:")
-        for (prop_name, _) in PROPS:
-            if prop_name == 'hvym_contract_abi' or prop_name == 'hvym_contract_address':
-                row = box.row()
-                row.prop(context.scene, prop_name)
+        row.label(text="Project Settings:")
+        row = box.row()
+        row.prop(context.scene, 'hvym_project_name')
+        row = box.row()
+        row.operator('hvym_set.project_confirm_dialog', text="Set Project", icon="CONSOLE")
+        row = box.row()
+        row.label(text="Internet Computer Project Path:")
+        row = box.row()
+        row.label(text=context.scene.hvym_project_path)
+        box = col.row()
+        row = box.row()
+
 
 
 # -------------------------------------------------------------------
@@ -3218,6 +3309,8 @@ blender_classes = [
     HVYM_LIST_DefaultValues,
     HVYM_DebugMinter,
     HVYM_DebugModel,
+    HVYM_SetProject,
+    HVYM_SetConfirmDialog,
     HVYM_DataReload,
     HVYM_ExportHelper,
     HVYM_DeployMinter,
