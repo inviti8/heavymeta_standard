@@ -50,6 +50,8 @@ import random
 import math
 import os
 import subprocess
+import threading
+from subprocess import Popen, PIPE
 from os import path
 from typing import Dict
 from bpy.app.handlers import persistent
@@ -651,6 +653,23 @@ class HVYM_MenuTransformGroup(GizmoGroup):
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
 # -------------------------------------------------------------------
+def run_command(cmd):
+    process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+    output, error = process.communicate()
+    
+    if process.returncode != 0:   # Checking the return code
+        print("Command failed with error:", error.decode('utf-8'))
+    else:
+        print(output.decode('utf-8'))
+
+def call_cli_threaded(command):
+    if os.path.isfile(CLI):
+        command = CLI + ' ' + command
+        print(command)
+        thread = threading.Thread(target=run_command, args=(command,))
+        thread.start()
+        thread.join()
+
 def call_cli(call_arr):
     result = None
     if os.path.isfile(CLI):
@@ -1108,6 +1127,7 @@ PROPS = [
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
     ('hvym_project_name', bpy.props.StringProperty(name='Project-Name', default='NOT-SET!!!!', description ="Collection name for asset deployement.", update=onUpdate)),
     ('hvym_project_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current working project path.", update=onUpdate)),
+    ('hvym_daemon_running', bpy.props.BoolProperty(name="Daemon Running", description="Toggle the test daemon.", default=False)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
     ('hvym_export_path', bpy.props.StringProperty(name='Export-Path', subtype='FILE_PATH', default='', description ="Gltf export path for debug & deploy.", update=onUpdate)),
@@ -2307,18 +2327,13 @@ class HVYM_DebugModel(bpy.types.Operator):
         print("Debug Model")
         file_path = bpy.data.filepath
         file_name = Path(file_path).stem
-        out = os.path.join(bpy.path.abspath(bpy.context.scene.hvym_export_path), file_name)
+        export_path = bpy.path.abspath(bpy.context.scene.hvym_export_path)
+        out_file = os.path.join(export_path, file_name)
         cli = os.path.join(ADDON_PATH, 'heavymeta_cli')
-        #subprocess.run([cli, 'icp-project-path'], check=True)
-        result = subprocess.run([cli, 'icp-project-path'], capture_output=True, text=True, check=False)
-
-        if result.returncode != 0:
-            print("Command failed with error:")
-            print(result.stderr)
-        else:
-            print("Command was successful, output is:")
-            print(result.stdout)
-        #bpy.ops.export_scene.gltf(filepath=out,  check_existing=False, export_format='GLB')
+        #export gltf to export folder
+        if os.path.exists(export_path):
+            bpy.ops.export_scene.gltf(filepath=out,  check_existing=False, export_format='GLB')
+            call_cli(['icp-project'])
         return {'FINISHED'}
 
 class HVYM_SetProject(bpy.types.Operator):
@@ -2354,6 +2369,25 @@ class HVYM_SetConfirmDialog(bpy.types.Operator):
 
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event)
+
+
+class HVYM_ToggleAssetDaemon(bpy.types.Operator):
+    bl_idname = "hvym_toggle_asset.daemon"
+    bl_label = "Toggle the test daemon."
+    bl_description ="Enables and disables the daemon for testing."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Set Project")
+        print(context.scene.hvym_daemon_running)
+        context.scene.hvym_daemon_running = not context.scene.hvym_daemon_running
+        if context.scene.hvym_daemon_running == True:
+            call_cli_threaded('icp-start-assets')
+        elif context.scene.hvym_daemon_running == False:
+            call_cli(['icp-stop-assets'])
+
+
+        return {'FINISHED'}
 
 
 class HVYM_ExportHelper(bpy.types.Operator, ExportHelper):
@@ -2859,13 +2893,18 @@ class HVYM_ScenePanel(bpy.types.Panel):
                 row = row.row()
                 row.enabled = context.scene.add_version
             if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
-                if prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path':
+                if prop_name != 'hvym_daemon_running' and prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path':
                     row.prop(context.scene, prop_name)
         row = col.row()
         row.separator()
         box = col.box()
         row = box.row()
         row.label(text="Debugging:")
+        row = box.row()
+        if context.scene.hvym_daemon_running == False:
+            row.operator('hvym_toggle_asset.daemon', text="Daemon Off", icon="COLORSET_01_VEC")
+        elif context.scene.hvym_daemon_running == True:
+            row.operator('hvym_toggle_asset.daemon', text="Daemon On", icon="COLORSET_03_VEC")
         row = box.row()
         row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
         row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
@@ -3311,6 +3350,7 @@ blender_classes = [
     HVYM_DebugModel,
     HVYM_SetProject,
     HVYM_SetConfirmDialog,
+    HVYM_ToggleAssetDaemon,
     HVYM_DataReload,
     HVYM_ExportHelper,
     HVYM_DeployMinter,
