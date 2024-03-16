@@ -51,7 +51,8 @@ import math
 import os
 import subprocess
 import threading
-from subprocess import Popen, PIPE
+from subprocess import run, Popen, PIPE
+import concurrent.futures
 from os import path
 from typing import Dict
 from bpy.app.handlers import persistent
@@ -89,12 +90,8 @@ if os.path.isfile(CLI):
     result = subprocess.run([CLI, 'icp-project-path'], capture_output=True, text=True, check=False)
 
     if result.returncode != 0:
-        print("Command failed with error:")
-        print(result.stderr)
         ICP_PATH = result.stderr
     else:
-        print("Command was successful, output is:")
-        print(result.stdout)
         ICP_PATH = result.stdout
 
 # Custom hooks. Defined here and registered/unregistered in register()/unregister().
@@ -653,10 +650,30 @@ class HVYM_MenuTransformGroup(GizmoGroup):
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
 # -------------------------------------------------------------------
+def run_futures_cmds(cmds):
+    result = None
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {executor.submit(run, cmd, shell=True): cmd for cmd in cmds}
+        
+        for future in concurrent.futures.as_completed(futures):
+            cmd = futures[future]
+            
+            try:
+                result = future.result()  # Get the result from Future object
+                # print("Command output: ", result.stdout)
+                
+            except Exception as e:   # Checking for any exception raised by the command
+                print("Command failed with error:", str(e))
+            # else:
+            #     print(future.result().stdout)
+            #     print(f"{cmd} completed successfully")
+
+        return result
+
 def run_command(cmd):
     process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
     output, error = process.communicate()
-    
+
     if process.returncode != 0:   # Checking the return code
         print("Command failed with error:", error.decode('utf-8'))
     else:
@@ -668,13 +685,16 @@ def call_cli_threaded(command):
         print(command)
         thread = threading.Thread(target=run_command, args=(command,))
         thread.start()
-        thread.join()
+        print('thread.start()')
+        # thread.join()
+        # print('thread.join()')
 
 def call_cli(call_arr):
     result = None
     if os.path.isfile(CLI):
         cli_call = [CLI]
         cli_call = cli_call+call_arr
+
         call = subprocess.run(cli_call, capture_output=True, text=True, check=False)
 
         if call.returncode != 0:
@@ -682,8 +702,6 @@ def call_cli(call_arr):
             print(result.stderr)
             result = call.stderr
         else:
-            print("Command was successful, output is:")
-            print(call.stdout)
             result = call.stdout
 
     return result
@@ -2380,11 +2398,14 @@ class HVYM_ToggleAssetDaemon(bpy.types.Operator):
     def execute(self, context):
         print("Set Project")
         print(context.scene.hvym_daemon_running)
-        context.scene.hvym_daemon_running = not context.scene.hvym_daemon_running
         if context.scene.hvym_daemon_running == True:
-            call_cli_threaded('icp-start-assets')
-        elif context.scene.hvym_daemon_running == False:
             call_cli(['icp-stop-assets'])
+        elif context.scene.hvym_daemon_running == False:
+            output = run_futures_cmds([CLI+' icp-start-assets'])
+            print(output)
+            print('------------------------------------')
+
+        context.scene.hvym_daemon_running = not context.scene.hvym_daemon_running
 
 
         return {'FINISHED'}
