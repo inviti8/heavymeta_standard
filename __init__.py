@@ -83,6 +83,7 @@ glTF_extension_name = "HVYM_nft_data"
 SCRIPT_PATH = bpy.utils.user_resource('SCRIPTS')
 ADDON_PATH = os.path.join(SCRIPT_PATH, 'addons', 'heavymeta_standard')
 CLI = os.path.join(ADDON_PATH, 'heavymeta_cli')
+FILE_NAME = Path(bpy.data.filepath).stem
 
 ICP_PATH = 'NOT SET'
 
@@ -699,7 +700,7 @@ def call_cli(call_arr):
 
         if call.returncode != 0:
             print("Command failed with error:")
-            print(result.stderr)
+            print(call.stderr)
             result = call.stderr
         else:
             result = call.stdout
@@ -1148,6 +1149,7 @@ PROPS = [
     ('hvym_daemon_running', bpy.props.BoolProperty(name="Daemon Running", description="Toggle the test daemon.", default=False)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
+    ('hvym_export_name', bpy.props.StringProperty(name='Export-Name', default=FILE_NAME, description ="Gltf export path for debug & deploy.", update=onUpdate)),
     ('hvym_export_path', bpy.props.StringProperty(name='Export-Path', subtype='FILE_PATH', default='', description ="Gltf export path for debug & deploy.", update=onUpdate)),
 ]
 
@@ -2344,14 +2346,17 @@ class HVYM_DebugModel(bpy.types.Operator):
     def execute(self, context):
         print("Debug Model")
         file_path = bpy.data.filepath
-        file_name = Path(file_path).stem
+        file_name = bpy.context.scene.hvym_export_name
         export_path = bpy.path.abspath(bpy.context.scene.hvym_export_path)
         out_file = os.path.join(export_path, file_name)
+        print(out_file)
         cli = os.path.join(ADDON_PATH, 'heavymeta_cli')
         #export gltf to export folder
         if os.path.exists(export_path):
-            bpy.ops.export_scene.gltf(filepath=out,  check_existing=False, export_format='GLB')
-            call_cli(['icp-project'])
+            bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
+            #call_cli(['icp-deploy-asset', out_file+'.glb'])
+            #call_cli_threaded('icp-deploy-asset '+out_file+'.glb')
+            run_futures_cmds(['icp-deploy-asset', out_file+'.glb'])
         return {'FINISHED'}
 
 class HVYM_SetProject(bpy.types.Operator):
@@ -2914,7 +2919,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
                 row = row.row()
                 row.enabled = context.scene.add_version
             if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
-                if prop_name != 'hvym_daemon_running' and prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path':
+                if prop_name != 'hvym_daemon_running' and prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_name' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path':
                     row.prop(context.scene, prop_name)
         row = col.row()
         row.separator()
@@ -2931,8 +2936,10 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
         box = col.box()
         row = box.row()
-        if prop_name == 'hvym_export_path':
-            row.prop(context.scene, prop_name)
+        if prop_name == 'hvym_export_path' or prop_name == 'hvym_export_name':
+            row.prop(context.scene, 'hvym_export_name')
+            row = box.row()
+            row.prop(context.scene, 'hvym_export_path')
         box = col.box()
         row = box.row()
         row.separator()
