@@ -83,9 +83,11 @@ glTF_extension_name = "HVYM_nft_data"
 SCRIPT_PATH = bpy.utils.user_resource('SCRIPTS')
 ADDON_PATH = os.path.join(SCRIPT_PATH, 'addons', 'heavymeta_standard')
 CLI = os.path.join(ADDON_PATH, 'heavymeta_cli')
-FILE_NAME = Path(bpy.data.filepath).stem
-
+#print(bpy.data.filepath.lower())
+#FILE_NAME = Path(bpy.data.filepath).stem
+FILE_NAME = 'NOT SET'
 ICP_PATH = 'NOT SET'
+DAEMON_RUNNING = False
 
 if os.path.isfile(CLI):
     result = subprocess.run([CLI, 'icp-project-path'], capture_output=True, text=True, check=False)
@@ -2347,16 +2349,16 @@ class HVYM_DebugModel(bpy.types.Operator):
         print("Debug Model")
         file_path = bpy.data.filepath
         file_name = bpy.context.scene.hvym_export_name
-        export_path = bpy.path.abspath(bpy.context.scene.hvym_export_path)
-        out_file = os.path.join(export_path, file_name)
-        print(out_file)
+
         cli = os.path.join(ADDON_PATH, 'heavymeta_cli')
-        #export gltf to export folder
-        if os.path.exists(export_path):
-            bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-            #call_cli(['icp-deploy-asset', out_file+'.glb'])
-            #call_cli_threaded('icp-deploy-asset '+out_file+'.glb')
-            run_futures_cmds(['icp-deploy-asset', out_file+'.glb'])
+        if context.scene.hvym_nft_chain == 'ICP':
+            if context.scene.hvym_project_path is not None:
+                project_path = bpy.context.scene.hvym_project_path.rstrip()
+                #export gltf to export folder
+                if os.path.exists(project_path):
+                    out_file = os.path.join(project_path, 'Assets', 'src', file_name)
+                    bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
+                    run_futures_cmds([CLI+' icp-deploy-assets'])
         return {'FINISHED'}
 
 class HVYM_SetProject(bpy.types.Operator):
