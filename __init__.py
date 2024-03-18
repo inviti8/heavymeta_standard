@@ -75,6 +75,8 @@ from bpy.types import (Panel,
 from bpy.props import (FloatVectorProperty)
 from bpy_extras.io_utils import ExportHelper
 from pathlib import Path
+import webbrowser
+import ast
 
 preview_collections = {}
 
@@ -681,6 +683,7 @@ def run_command(cmd):
         print("Command failed with error:", error.decode('utf-8'))
     else:
         print(output.decode('utf-8'))
+        return output.decode('utf-8')
 
 def call_cli_threaded(command):
     if os.path.isfile(CLI):
@@ -1148,6 +1151,7 @@ PROPS = [
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
     ('hvym_project_name', bpy.props.StringProperty(name='Project-Name', default='NOT-SET!!!!', description ="Collection name for asset deployement.", update=onUpdate)),
     ('hvym_project_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current working project path.", update=onUpdate)),
+    ('hvym_debug_url', bpy.props.StringProperty(name='Url', default='', description ="Current running debug url.", update=onUpdate)),
     ('hvym_daemon_running', bpy.props.BoolProperty(name="Daemon Running", description="Toggle the test daemon.", default=False)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
@@ -2354,11 +2358,12 @@ class HVYM_DebugModel(bpy.types.Operator):
         if context.scene.hvym_nft_chain == 'ICP':
             if context.scene.hvym_project_path is not None:
                 project_path = bpy.context.scene.hvym_project_path.rstrip()
-                #export gltf to export folder
+                #export gltf to project folder
                 if os.path.exists(project_path):
                     out_file = os.path.join(project_path, 'Assets', 'src', file_name)
                     bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                    run_futures_cmds([CLI+' icp-deploy-assets'])
+                    urls = run_command(CLI+' icp-deploy-assets')
+                    context.scene.hvym_debug_url = ast.literal_eval(urls)[0]
         return {'FINISHED'}
 
 class HVYM_SetProject(bpy.types.Operator):
@@ -2407,6 +2412,7 @@ class HVYM_ToggleAssetDaemon(bpy.types.Operator):
         print(context.scene.hvym_daemon_running)
         if context.scene.hvym_daemon_running == True:
             call_cli(['icp-stop-assets'])
+            context.scene.hvym_debug_url = ''
         elif context.scene.hvym_daemon_running == False:
             output = run_futures_cmds([CLI+' icp-start-assets'])
             print(output)
@@ -2415,6 +2421,17 @@ class HVYM_ToggleAssetDaemon(bpy.types.Operator):
         context.scene.hvym_daemon_running = not context.scene.hvym_daemon_running
 
 
+        return {'FINISHED'}
+
+class HVYM_OpenDebugUrl(bpy.types.Operator):
+    bl_idname = "hvym_open_debug.url"
+    bl_label = "Open Debug URL."
+    bl_description ="Open the currently active debug url.."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Open Url")
+        webbrowser.open(context.scene.hvym_debug_url)
         return {'FINISHED'}
 
 
@@ -2936,6 +2953,11 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row = box.row()
         row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
         row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
+        row = box.row()
+        if context.scene.hvym_debug_url != '':
+            row.prop(context.scene, 'hvym_debug_url')
+            row = box.row()
+            row.operator('hvym_open_debug.url', text="Debug URL", icon="URL")
         box = col.box()
         row = box.row()
         if prop_name == 'hvym_export_path' or prop_name == 'hvym_export_name':
@@ -3381,6 +3403,7 @@ blender_classes = [
     HVYM_SetProject,
     HVYM_SetConfirmDialog,
     HVYM_ToggleAssetDaemon,
+    HVYM_OpenDebugUrl,
     HVYM_DataReload,
     HVYM_ExportHelper,
     HVYM_DeployMinter,
