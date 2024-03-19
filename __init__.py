@@ -2366,6 +2366,26 @@ class HVYM_DebugModel(bpy.types.Operator):
                     context.scene.hvym_debug_url = ast.literal_eval(urls)[0]
         return {'FINISHED'}
 
+
+class HVYM_DebugModelConfirmDialog(bpy.types.Operator):
+    """Deploys debug model Editor."""
+    bl_idname = "hvym_debug.model_confirm_dialog"
+    bl_label = "Deploy debug model?"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        self.report({'INFO'}, "YES")
+        bpy.ops.hvym_debug.model()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
+
+
 class HVYM_SetProject(bpy.types.Operator):
     bl_idname = "hvym_set.project"
     bl_label = "Set Heavymeta project"
@@ -2952,7 +2972,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
             row.operator('hvym_toggle_asset.daemon', text="Daemon On", icon="COLORSET_03_VEC")
         row = box.row()
         row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
-        row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
+        row.operator('hvym_debug.model_confirm_dialog', text="Debug Model", icon="CONSOLE")
         row = box.row()
         if context.scene.hvym_debug_url != '':
             row.prop(context.scene, 'hvym_debug_url')
@@ -3400,6 +3420,7 @@ blender_classes = [
     HVYM_LIST_DefaultValues,
     HVYM_DebugMinter,
     HVYM_DebugModel,
+    HVYM_DebugModelConfirmDialog,
     HVYM_SetProject,
     HVYM_SetConfirmDialog,
     HVYM_ToggleAssetDaemon,
