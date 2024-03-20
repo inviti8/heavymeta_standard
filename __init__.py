@@ -6,7 +6,7 @@ Addon to add standardized meta-data to the scene at the API level.  Standard
 Heavmeta Data are offered as a proposed framework that is based on standards
 defined here: https://www.nftstandards.wtf/NFT/NFT+Metadata.  Additional att-
 ributes have been added to support properties used in 3D art and Animation. 
-I have opted to make all NFT related data adsignable at the Collection level.
+I have opted to make all NFT related data assignable at the Collection level.
 This seems to make the most sense, given that 3D elements usually a hierarchy
 of several object types.
 --------
@@ -2362,8 +2362,10 @@ class HVYM_DebugModel(bpy.types.Operator):
                 if os.path.exists(project_path):
                     out_file = os.path.join(project_path, 'Assets', 'src', file_name)
                     bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
+                    run_command(CLI+' icp-debug-model '+file_name+'.glb')
                     urls = run_command(CLI+' icp-deploy-assets')
                     context.scene.hvym_debug_url = ast.literal_eval(urls)[0]
+                    
         return {'FINISHED'}
 
 
@@ -2970,9 +2972,9 @@ class HVYM_ScenePanel(bpy.types.Panel):
             row.operator('hvym_toggle_asset.daemon', text="Daemon Off", icon="COLORSET_01_VEC")
         elif context.scene.hvym_daemon_running == True:
             row.operator('hvym_toggle_asset.daemon', text="Daemon On", icon="COLORSET_03_VEC")
-        row = box.row()
-        row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
-        row.operator('hvym_debug.model_confirm_dialog', text="Debug Model", icon="CONSOLE")
+            row = box.row()
+            row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
+            row.operator('hvym_debug.model_confirm_dialog', text="Debug Model", icon="CONSOLE")
         row = box.row()
         if context.scene.hvym_debug_url != '':
             row.prop(context.scene, 'hvym_debug_url')
