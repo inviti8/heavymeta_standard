@@ -75,6 +75,7 @@ from bpy.types import (Panel,
 from bpy.props import (FloatVectorProperty)
 from bpy_extras.io_utils import ExportHelper
 from pathlib import Path
+from _thread import start_new_thread
 import webbrowser
 import ast
 
@@ -90,6 +91,7 @@ CLI = os.path.join(ADDON_PATH, 'heavymeta_cli')
 FILE_NAME = 'NOT SET'
 ICP_PATH = 'NOT SET'
 DAEMON_RUNNING = False
+LOADING = False
 
 if os.path.isfile(CLI):
     result = subprocess.run([CLI, 'icp-project-path'], capture_output=True, text=True, check=False)
@@ -655,6 +657,21 @@ class HVYM_MenuTransformGroup(GizmoGroup):
 # -------------------------------------------------------------------
 #   Heavymeta Standards Panel
 # -------------------------------------------------------------------
+
+def update_progress():
+    global LOADING
+    wm = bpy.context.window_manager
+    tot = 1000  # progress from [0 - 1000]
+    wm.progress_begin(0, tot)
+    i = 0
+    while True:
+        if not LOADING:  # break the loop when loading is False
+            print("Loading cancelled.")
+            wm.progress_end()
+            break
+        wm.progress_update(i % tot)  # update progress bar
+        i += 1
+
 def run_futures_cmds(cmds):
     result = None
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -979,7 +996,8 @@ def updateNftData(context):
             break
         
 
-    context.scene.hvym_collections_data.nftData['contract'] =                   {'nftType': context.scene.hvym_nft_type,
+    context.scene.hvym_collections_data.nftData['contract'] =                   {'mintable': context.scene.hvym_mintable,
+                                                                                'nftType': context.scene.hvym_nft_type,
                                                                                 'nftChain': context.scene.hvym_nft_chain,
                                                                                 'nftPrice': round(context.scene.hvym_nft_price, 4),
                                                                                 'premNftPrice': round(context.scene.hvym_prem_nft_price, 4),
@@ -1139,6 +1157,7 @@ PROPS = [
         description ="Heavymeta NFT type, see docs for more detail.",
         update=onUpdate)),
     ('hvym_nft_price', bpy.props.FloatProperty(name='NFT-Price', default=0.01, description ="Price of NFT in eth.", update=onUpdate)),
+    ('hvym_mintable', bpy.props.BoolProperty(name='Mintable', description ="If true, this model is a mintable NFT.", default=True)),
     ('hvym_prem_nft_price', bpy.props.FloatProperty(name='Premium-NFT-Price', default=0.01, description ="Premium price of customized NFT in eth.", update=onUpdate)),
     ('hvym_max_supply', bpy.props.IntProperty(name='Max-Supply', default=-1, description ="Max number that can be minted, if -1 supply is infinite.", update=onUpdate)),
     ('hvym_minter_type', bpy.props.EnumProperty(
@@ -2347,7 +2366,7 @@ class HVYM_DebugModel(bpy.types.Operator):
     bl_idname = "hvym_debug.model"
     bl_label = "Launch Model Debug UI"
     bl_description ="Launch model UI debug."
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER'}
 
     def execute(self, context):
         print("Debug Model")
@@ -2360,12 +2379,23 @@ class HVYM_DebugModel(bpy.types.Operator):
                 project_path = bpy.context.scene.hvym_project_path.rstrip()
                 #export gltf to project folder
                 if os.path.exists(project_path):
-                    out_file = os.path.join(project_path, 'Assets', 'src', file_name)
+                    wm = bpy.context.window_manager
+                    wm.progress_begin(0, 88)
+                    wm.progress_update(88)
+                    src_dir = os.path.join(project_path, 'Assets', 'src')
+                    out_file = os.path.join(src_dir, file_name)
+
+                    for filename in os.listdir(src_dir):
+                        file_path = os.path.join(src_dir, filename)
+                        if os.path.isfile(file_path) and '.glb' in file_path:
+                            os.unlink(file_path)
+
                     bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
                     run_command(CLI+' icp-debug-model '+file_name+'.glb')
                     urls = run_command(CLI+' icp-deploy-assets')
+                    wm.progress_end()
                     context.scene.hvym_debug_url = ast.literal_eval(urls)[0]
-                    
+
         return {'FINISHED'}
 
 
@@ -2427,16 +2457,20 @@ class HVYM_ToggleAssetDaemon(bpy.types.Operator):
     bl_idname = "hvym_toggle_asset.daemon"
     bl_label = "Toggle the test daemon."
     bl_description ="Enables and disables the daemon for testing."
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER'}
 
     def execute(self, context):
-        print("Set Project")
-        print(context.scene.hvym_daemon_running)
+        wm = bpy.context.window_manager
+        
         if context.scene.hvym_daemon_running == True:
             call_cli(['icp-stop-assets'])
             context.scene.hvym_debug_url = ''
         elif context.scene.hvym_daemon_running == False:
+            wm.progress_begin(0, 88)
+            wm.progress_update(88)
             output = run_futures_cmds([CLI+' icp-start-assets'])
+            wm.progress_update(88)
+            wm.progress_end()
             print(output)
             print('------------------------------------')
 
@@ -2954,15 +2988,30 @@ class HVYM_ScenePanel(bpy.types.Panel):
         box = col.row()
         row = box.row()
         row.separator()
-        for (prop_name, _) in PROPS:
-            row = col.row()
-            if prop_name == 'minter_version':
-                row = row.row()
-                row.enabled = context.scene.add_version
-            if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
-                if prop_name != 'hvym_daemon_running' and prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_name' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path':
-                    row.prop(context.scene, prop_name)
+        row.prop(context.scene, 'hvym_mintable')
+        if context.scene.hvym_mintable:
+            for (prop_name, _) in PROPS:
+                row = col.row()
+                if prop_name == 'minter_version':
+                    row = row.row()
+                    row.enabled = context.scene.add_version
+                if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
+                    if prop_name != 'hvym_mintable' and prop_name != 'hvym_daemon_running' and prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_name' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path':
+                        row.prop(context.scene, prop_name)
         row = col.row()
+        box = col.box()
+        row = box.row()
+        row.label(text="Project Settings:")
+        row = box.row()
+        row.prop(context.scene, 'hvym_project_name')
+        row = box.row()
+        row.operator('hvym_set.project_confirm_dialog', text="Set Project", icon="CONSOLE")
+        row = box.row()
+        row.label(text="Internet Computer Project Path:")
+        row = box.row()
+        row.label(text=context.scene.hvym_project_path)
+        box = col.row()
+        row = box.row()
         row.separator()
         box = col.box()
         row = box.row()
@@ -2982,31 +3031,19 @@ class HVYM_ScenePanel(bpy.types.Panel):
             row.operator('hvym_open_debug.url', text="Debug URL", icon="URL")
         box = col.box()
         row = box.row()
-        if prop_name == 'hvym_export_path' or prop_name == 'hvym_export_name':
-            row.prop(context.scene, 'hvym_export_name')
+        row.prop(context.scene, 'hvym_export_name')
+        row = box.row()
+        row.prop(context.scene, 'hvym_export_path')
+        if context.scene.hvym_mintable:
+            box = col.box()
             row = box.row()
-            row.prop(context.scene, 'hvym_export_path')
-        box = col.box()
-        row = box.row()
-        row.separator()
-        row.label(text="Deploy:")
-        row = box.row()
-        row.operator('hvym_deploy.confirm_minter_deploy_dialog', text="Deploy Minter", icon="URL")
-        # row = box.row()
-        # row.operator('hvym_deploy.confirm_nft_deploy_dialog', text="Deploy NFT", icon="URL")
-        box = col.box()
-        row = box.row()
-        row.label(text="Project Settings:")
-        row = box.row()
-        row.prop(context.scene, 'hvym_project_name')
-        row = box.row()
-        row.operator('hvym_set.project_confirm_dialog', text="Set Project", icon="CONSOLE")
-        row = box.row()
-        row.label(text="Internet Computer Project Path:")
-        row = box.row()
-        row.label(text=context.scene.hvym_project_path)
-        box = col.row()
-        row = box.row()
+            row.separator()
+            row.label(text="Deploy:")
+            row = box.row()
+            row.operator('hvym_deploy.confirm_minter_deploy_dialog', text="Deploy Minter", icon="URL")
+            # row = box.row()
+            # row.operator('hvym_deploy.confirm_nft_deploy_dialog', text="Deploy NFT", icon="URL")
+        
 
 
 
