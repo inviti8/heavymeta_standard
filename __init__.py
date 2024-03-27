@@ -905,6 +905,7 @@ def updateNftData(context):
                             }
                     mesh_set_data.append(mesh_data)
             mesh_set_obj['set'] = mesh_set_data
+            mesh_set_obj['selected_index'] = 0
             mesh_set_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
             mesh_set_obj['show'] = hvym_meta_data[i].show
             meshSets[hvym_meta_data[i].type] = mesh_set_obj
@@ -939,6 +940,7 @@ def updateNftData(context):
                         'end': hvym_meta_data[i].anim_end,
                         'blending': hvym_meta_data[i].model_ref.animation_data.action_blend_type,
                         'weight': hvym_meta_data[i].anim_weight,
+                        'play': hvym_meta_data[i].anim_play,
                         'model_ref': hvym_meta_data[i].model_ref,
                         'widget_type': widget_type,
                         'show': hvym_meta_data[i].show
@@ -974,6 +976,7 @@ def updateNftData(context):
 
             mat_obj['mesh_set'] = hvym_meta_data[i].mesh_set_name
             mat_obj['set'] = mat_sets
+            mat_obj['selected_index'] = 0
             mat_obj['material_id'] = hvym_meta_data[i].material_id
             mat_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
             mat_obj['show'] = hvym_meta_data[i].show
@@ -1580,6 +1583,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default=1.0,
            min=0,
            max=1.0,
+           update=onUpdate)
+
+    anim_play: bpy.props.BoolProperty(
+           name="Play",
+           description="If animation is playing or not.",
+           default=True,
            update=onUpdate)
 
     mat_type: bpy.props.EnumProperty(
@@ -2913,6 +2922,7 @@ class HVYM_DataPanel(bpy.types.Panel):
             elif item.trait_type == 'anim':
                 row.prop(item, "anim_loop")
                 row.prop(item, "anim_weight")
+                row.prop(item, "anim_play")
             elif item.trait_type == 'mat_prop':
                 row.prop(item, "mat_ref")
                 row.prop(item, "mat_type")
