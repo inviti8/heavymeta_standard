@@ -836,6 +836,20 @@ def RebuildMaterialSets(context):
                 obj.data.polygons[j].material_index = j
                 j+=1
 
+def get_material_properties(mat):
+    data = {}
+    valid_props = ['diffuse_color', 'specular_color', 'specular', 'specular_intensity', 'roughness', 'metallic']
+    for attr in dir(mat):
+       if hasattr( mat, attr ) and attr in valid_props:
+        value = getattr(mat, attr)
+        if attr == 'diffuse_color':
+            value = color_to_hex(mat.diffuse_color)
+        elif attr == 'specular_color':
+            value = color_to_hex(value)
+        data[attr] = value
+
+    return data
+
 
 def updateNftData(context):
     #Update all the props on any change
@@ -958,7 +972,8 @@ def updateNftData(context):
                             'irridescent': hvym_meta_data[i].mat_irridescent,
                             'sheen': hvym_meta_data[i].mat_sheen,
                             'widget_type': hvym_meta_data[i].prop_multi_widget_type,
-                            'show': hvym_meta_data[i].show
+                            'show': hvym_meta_data[i].show,
+                            'mat_values': get_material_properties(hvym_meta_data[i].mat_ref)
                             }
                 materials[hvym_meta_data[i].type] = mat_data
 
