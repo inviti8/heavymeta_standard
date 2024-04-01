@@ -78,6 +78,7 @@ from pathlib import Path
 from _thread import start_new_thread
 import webbrowser
 import ast
+import json
 
 preview_collections = {}
 
@@ -851,6 +852,65 @@ def get_material_properties(mat):
     return data
 
 
+def property_group_to_dict(pg):
+    result = {}
+    
+    if len(pg) == 0:
+        return result 
+        
+    for i in range(len(pg)):
+        item_result = {}
+        
+        for attr in dir(pg[i]):
+            if hasattr( pg[i], attr ):
+                value = getattr(pg[i], attr)
+                if(attr == 'model_ref'):
+                    if value != None:
+                        value = {'name': value.name}
+                if(attr == 'mesh_set'):
+                    if value != None:
+                        m_set = []
+                        for m in pg[i].mesh_set:
+                            if m.model_ref != None:
+                                visible = not m.model_ref.hide_select
+                                mesh_data = {
+                                        'name': m.model_ref.name,
+                                        'visible': visible
+                                        }
+                                m_set.append(mesh_data)
+
+                        value = m_set
+                if(attr == 'morph_set'):
+                    if value != None:
+                        m_set = []
+                        for m in pg[i].morph_set:
+                            morph_data = {
+                                'name': m.name,
+                                'default': m.float_default,
+                                'min': m.float_min,
+                                'max': m.float_max
+                            }
+                            m_set.append(morph_data)
+                        value = m_set
+
+                
+                if isinstance(value, (str, int, float, bool, list, dict)):
+                    try:
+                        json.dumps(value)   # Try converting value into json format
+                    except (TypeError, OverflowError):  # If it fails due to these reasons
+                        pass  # Ignore this value
+                    else:
+                        item_result[attr] = value  # Only add the value to `item_result` if it is serializable.
+            
+        result[i] = item_result
+    
+    return result
+
+
+def property_group_to_json(pg):
+    return json.dumps(property_group_to_dict(pg))
+
+
 def updateNftData(context):
     #Update all the props on any change
     #put them into a single structure
@@ -869,6 +929,10 @@ def updateNftData(context):
     nodes = []
     menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None, 'alignment': None}
     prop_label_data = None
+
+    params = ['parse-blender-hvym-data', property_group_to_json(hvym_meta_data)]
+
+    print(call_cli(params))
 
     for i in range(len(hvym_meta_data)):
         int_props = {
@@ -907,6 +971,7 @@ def updateNftData(context):
                             }
 
                 meshProps[hvym_meta_data[i].type] = mesh_data
+
 
         elif hvym_meta_data[i].trait_type == 'mesh_set':
             mesh_set_obj = {}
