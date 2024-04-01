@@ -893,6 +893,23 @@ def property_group_to_dict(pg):
                             m_set.append(morph_data)
                         value = m_set
 
+                if(attr == 'anim_blending'):
+                    if hasattr( pg[i], 'model_ref' ) and pg[i].model_ref != None and pg[i].model_ref.animation_data != None:
+                        pg[i].anim_blending = pg[i].model_ref.animation_data.action_blend_type
+
+                if(attr == 'mat_ref'):
+                    if value != None:
+                        mat_props = {'name': value.name, 'color': color_to_hex(value.diffuse_color)}
+                        if hasattr(value, 'specular_color'):
+                            mat_props['specular_color'] = color_to_hex(value.specular_color)
+                        if hasattr(value, 'specular_intensity'):
+                            mat_props['specular_intensity'] = value.specular_intensity
+                        if hasattr(value, 'roughness'):
+                            mat_props['roughness'] = value.roughness
+                        if hasattr(value, 'metallic'):
+                            mat_props['metalness'] = value.metallic
+                            
+                        value = mat_props
                 
                 if isinstance(value, (str, int, float, bool, list, dict)):
                     try:
@@ -1008,6 +1025,7 @@ def updateNftData(context):
                 morphSets[hvym_meta_data[i].type] = morph_obj
 
         elif hvym_meta_data[i].trait_type == 'anim':
+            hvym_meta_data[i].anim_blending = hvym_meta_data[i].model_ref.animation_data.action_blend_type
             widget_type = hvym_meta_data[i].prop_toggle_type
             if hvym_meta_data[i].anim_loop == 'Clamp':
                 widget_type = hvym_meta_data[i].prop_anim_slider_type
@@ -1017,7 +1035,7 @@ def updateNftData(context):
                         'loop': hvym_meta_data[i].anim_loop,
                         'start': hvym_meta_data[i].anim_start,
                         'end': hvym_meta_data[i].anim_end,
-                        'blending': hvym_meta_data[i].model_ref.animation_data.action_blend_type,
+                        'blending': hvym_meta_data[i].anim_blending,
                         'weight': hvym_meta_data[i].anim_weight,
                         'play': hvym_meta_data[i].anim_play,
                         'model_ref': hvym_meta_data[i].model_ref,
@@ -1654,8 +1672,7 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
     anim_blending: bpy.props.StringProperty(
            name="Blending",
            description="Blending mode for animation.",
-           default="additive",
-           update=onUpdate)
+           default="additive")
 
     anim_weight: bpy.props.FloatProperty(
            name="Weight",
