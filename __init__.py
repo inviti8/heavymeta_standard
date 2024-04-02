@@ -899,15 +899,96 @@ def property_group_to_dict(pg):
 
                 if(attr == 'mat_ref'):
                     if value != None:
+                        #dump_obj(value)
+                        #print(value.bl_rna.properties.keys())
                         mat_props = {'name': value.name, 'color': color_to_hex(value.diffuse_color)}
                         if hasattr(value, 'specular_color'):
                             mat_props['specular_color'] = color_to_hex(value.specular_color)
-                        if hasattr(value, 'specular_intensity'):
-                            mat_props['specular_intensity'] = value.specular_intensity
-                        if hasattr(value, 'roughness'):
-                            mat_props['roughness'] = value.roughness
-                        if hasattr(value, 'metallic'):
-                            mat_props['metalness'] = value.metallic
+
+                        pg[i].mat_emissive = False
+                        pg[i].mat_sheen = False
+
+                        for node in value.node_tree.nodes:
+                            if str(node.type) == 'EEVEE_SPECULAR':
+                                pg[i].mat_emissive = True
+
+                                if 'Specular' in node.inputs.keys():
+                                     mat_props['specular'] = node.inputs['Specular'].default_value
+
+                                if 'Roughness' in node.inputs.keys():
+                                     mat_props['roughness'] = node.inputs['Roughness'].default_value
+
+                                if 'Emissive Color' in node.inputs.keys():
+                                     mat_props['emissive_color'] = color_to_hex(node.inputs['Emissive Color'].default_value)
+
+                                if 'Transparency' in node.inputs.keys():
+                                     mat_props['transparency'] = node.inputs['Transparency'].default_value
+
+                                if 'Clear Coat' in node.inputs.keys():
+                                     mat_props['clear_coat'] = node.inputs['Clear Coat'].default_value
+
+                                if 'Clear Coat Roughness' in node.inputs.keys():
+                                     mat_props['clear_coat_roughness'] = node.inputs['Clear Coat Roughness'].default_value
+
+                            elif str(node.type) == 'BSDF_DIFFUSE' or str(node.type) == 'BSDF_SHEEN':
+                                if 'Color' in node.inputs.keys():
+                                     mat_props['color'] = color_to_hex(node.inputs['Color'].default_value)
+
+                                if 'Roughness' in node.inputs.keys():
+                                     mat_props['roughness'] = node.inputs['Roughness'].default_value 
+
+                            elif str(node.type) == 'BSDF_TOON':
+                                if 'Color' in node.inputs.keys():
+                                     mat_props['color'] = color_to_hex(node.inputs['Color'].default_value)
+
+                                if 'Size' in node.inputs.keys():
+                                    mat_props['size'] = node.inputs['Size'].default_value
+
+                                if 'Smooth' in node.inputs.keys():
+                                    mat_props['smooth'] = node.inputs['Smooth'].default_value     
+
+                            elif str(node.type) == 'BSDF_PRINCIPLED':
+                                if 'Roughness' in node.inputs.keys():
+                                    mat_props['roughness'] = node.inputs['Roughness'].default_value
+                                if 'Metallic' in node.inputs.keys():
+                                    mat_props['metalness'] = node.inputs['Metallic'].default_value
+
+                                if 'Specular Tint' in node.inputs.keys():
+                                     mat_props['specular_color'] = color_to_hex(node.inputs['Specular Tint'].default_value)
+
+                                if 'Specular IOR Level' in node.inputs.keys():
+                                    mat_props['specular_ior'] = node.inputs['Specular IOR Level'].default_value
+
+                                if 'Anisotropic' in node.inputs.keys():
+                                    mat_props['anisotropic'] = node.inputs['Anisotropic'].default_value
+
+                                if 'Anisotropic Rotation' in node.inputs.keys():
+                                    mat_props['anisotropic_rotation'] = node.inputs['Anisotropic Rotation'].default_value
+
+                                if 'Coat Weight' in node.inputs.keys():
+                                    mat_props['coat_weight'] = node.inputs['Coat Weight'].default_value
+
+                                if 'Specular IOR Level' in node.inputs.keys():
+                                    mat_props['specular_ior'] = node.inputs['Specular IOR Level'].default_value
+
+                                if 'Emission Color' in node.inputs.keys():
+                                     mat_props['emissive_color'] = color_to_hex(node.inputs['Emission Color'].default_value)
+
+                                if 'Emission Strength' in node.inputs.keys():
+                                    strength = node.inputs['Emission Strength'].default_value
+                                    mat_props['emissive_strength'] = strength
+                                    if strength > 0:
+                                        pg[i].mat_emissive = True
+
+                                if 'Sheen Tint' in node.inputs.keys():
+                                    mat_props['sheen_color'] = color_to_hex(node.inputs['Sheen Tint'].default_value)
+
+                                if 'Sheen Weight' in node.inputs.keys():
+                                    weight = node.inputs['Sheen Weight'].default_value
+                                    mat_props['sheen_weight'] = weight
+                                    if weight > 0:
+                                        pg[i].mat_sheen = True
+ 
                             
                         value = mat_props
                 
@@ -1707,8 +1788,7 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
     mat_emissive: bpy.props.BoolProperty(
            name="Emissive",
            description="Object emissive.",
-           default=False,
-           update=onUpdate)
+           default=False)
 
     mat_reflective: bpy.props.BoolProperty(
            name="Reflective",
@@ -1725,8 +1805,7 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
     mat_sheen: bpy.props.BoolProperty(
            name="Sheen",
            description="Object sheen.",
-           default=False,
-           update=onUpdate)
+           default=False)
 
     morph_ref: bpy.props.PointerProperty(
         name="Morph Reference",
@@ -3024,10 +3103,8 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row.prop(item, "mat_ref")
                 row.prop(item, "mat_type")
                 row = box.row()
-                row.prop(item, "mat_emissive")
                 row.prop(item, "mat_reflective")
                 row.prop(item, "mat_irridescent")
-                row.prop(item, "mat_sheen")
             elif item.trait_type == 'mat_set':
                 row.prop(item, "material_id")
                 row = box.row()
