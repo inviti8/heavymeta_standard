@@ -854,35 +854,26 @@ def get_material_properties(mat):
 def handle_mat_props(item, mat_props):
     item.mat_emissive = False
     item.mat_sheen = False
+    item.mat_type = mat_props['mat_type']
 
-    if mat_props['type'] == 'EEVEE_SPECULAR':
-        item.mat_type = 'PBR'
-        item.mat_emissive = True
+    if mat_props['mat_type'] == 'PBR':
 
-    elif mat_props['type'] == 'BSDF_DIFFUSE' or mat_props['type'] == 'BSDF_SHEEN':
-        item.mat_type = 'STANDARD'
+        if mat_props['emissive_strength'] > 0:
+            item.mat_emissive = True
 
-    elif mat_props['type'] == 'BSDF_TOON':
-            item.mat_type = 'TOON'
-
-    elif mat_props['type'] == 'BSDF_PRINCIPLED':
-            item.mat_type = 'PBR'
-            if mat_props['emissive_strength'] > 0:
-                item.mat_emissive = True
-
-            if mat_props['sheen_weight'] > 0:
-                item.mat_sheen = True
+        if mat_props['sheen_weight'] > 0:
+            item.mat_sheen = True
 
 
 def create_mat_ref(value):
-    mat_props = {'name': value.name, 'color': color_to_hex(value.diffuse_color)}
+    mat_props = {'name': value.name, 'color': color_to_hex(value.diffuse_color), 'type': 'Material'}
     if hasattr(value, 'specular_color'):
         mat_props['specular_color'] = color_to_hex(value.specular_color)
 
     for node in value.node_tree.nodes:
         node_type = str(node.type)
         if node_type == 'EEVEE_SPECULAR':
-            mat_props['type'] = node_type
+            mat_props['mat_type'] = 'PBR'
 
             if 'Specular' in node.inputs.keys():
                     mat_props['specular'] = node.inputs['Specular'].default_value
@@ -903,7 +894,7 @@ def create_mat_ref(value):
                     mat_props['clear_coat_roughness'] = node.inputs['Clear Coat Roughness'].default_value
 
         elif str(node.type) == 'BSDF_DIFFUSE' or str(node.type) == 'BSDF_SHEEN':
-            mat_props['type'] = node_type
+            mat_props['mat_type'] = 'STANDARD'
 
             if 'Color' in node.inputs.keys():
                     mat_props['color'] = color_to_hex(node.inputs['Color'].default_value)
@@ -912,7 +903,7 @@ def create_mat_ref(value):
                     mat_props['roughness'] = node.inputs['Roughness'].default_value 
 
         elif str(node.type) == 'BSDF_TOON':
-            mat_props['type'] = node_type
+            mat_props['type'] = 'TOON'
 
             if 'Color' in node.inputs.keys():
                     mat_props['color'] = color_to_hex(node.inputs['Color'].default_value)
@@ -924,7 +915,7 @@ def create_mat_ref(value):
                 mat_props['smooth'] = node.inputs['Smooth'].default_value     
 
         elif str(node.type) == 'BSDF_PRINCIPLED':
-            mat_props['type'] = node_type
+            mat_props['mat_type'] = 'PBR'
 
             if 'Roughness' in node.inputs.keys():
                 mat_props['roughness'] = node.inputs['Roughness'].default_value
@@ -1025,6 +1016,10 @@ def property_group_to_dict(pg):
                                 mat_sets.append(create_mat_ref(m.mat_ref))
 
                         value = mat_sets
+
+                if(attr == 'menu_primary_color' or attr == 'menu_secondary_color' or attr == 'menu_text_color'):
+                    if value != None:
+                        value = color_to_hex(value)
                 
                 if isinstance(value, (str, int, float, bool, list, dict)):
                     try:
@@ -1035,6 +1030,7 @@ def property_group_to_dict(pg):
                         item_result[attr] = value  # Only add the value to `item_result` if it is serializable.
             
         result[i] = item_result
+
     
     return result
 
@@ -1061,10 +1057,6 @@ def updateNftData(context):
     nodes = []
     menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None, 'alignment': None}
     prop_label_data = None
-
-    params = ['parse-blender-hvym-data', property_group_to_json(hvym_meta_data)]
-
-    print(call_cli(params))
 
     for i in range(len(hvym_meta_data)):
         int_props = {
@@ -1194,7 +1186,6 @@ def updateNftData(context):
             mat_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
             mat_obj['show'] = hvym_meta_data[i].show
             materialSets[hvym_meta_data[i].type] = mat_obj
-            print(materialSets[hvym_meta_data[i].type])
 
     for obj in context.collection.objects:
         node = {'name': obj.name, 'type': obj.type}
@@ -1210,6 +1201,15 @@ def updateNftData(context):
             menu_data['secondary_color'] = color_to_hex(data.menu_secondary_color)
             menu_data['text_color'] = color_to_hex(data.menu_text_color)
             break
+
+
+    params = ['parse-blender-hvym-collection', context.collection.name, context.collection.hvym_collection_type, context.collection.hvym_id, property_group_to_json(hvym_meta_data), property_group_to_json(context.scene.hvym_menu_meta_data), json.dumps(prop_label_data), json.dumps(nodes)]
+
+    # print(call_cli(params))
+    data = call_cli(params)
+    print(data)
+    jdata = json.loads(data)
+    # print(jdata['collectionName'])
         
 
     context.scene.hvym_collections_data.nftData['contract'] =                   {'mintable': context.scene.hvym_mintable,
@@ -1224,6 +1224,8 @@ def updateNftData(context):
                                                                                 'minterImage': context.scene.hvym_minter_image,
                                                                                 'minterVersion': context.scene.hvym_minter_version
                                                                                 }
+
+    # context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = jdata
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'collectionName': context.collection.name,
                                                                                 'collectionType': context.collection.hvym_collection_type,
