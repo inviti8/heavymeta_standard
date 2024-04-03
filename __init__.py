@@ -866,7 +866,7 @@ def handle_mat_props(item, mat_props):
 
 
 def create_mat_ref(value):
-    mat_props = {'name': value.name, 'color': color_to_hex(value.diffuse_color), 'type': 'Material'}
+    mat_props = {'name': value.name, 'diffuse_color': color_to_hex(value.diffuse_color), 'type': 'Material'}
     if hasattr(value, 'specular_color'):
         mat_props['specular_color'] = color_to_hex(value.specular_color)
 
@@ -921,7 +921,7 @@ def create_mat_ref(value):
                 mat_props['roughness'] = node.inputs['Roughness'].default_value
 
             if 'Metallic' in node.inputs.keys():
-                mat_props['metalness'] = node.inputs['Metallic'].default_value
+                mat_props['metallic'] = node.inputs['Metallic'].default_value
 
             if 'Specular Tint' in node.inputs.keys():
                     mat_props['specular_color'] = color_to_hex(node.inputs['Specular Tint'].default_value)
@@ -970,6 +970,7 @@ def property_group_to_dict(pg):
         for attr in dir(pg[i]):
             if hasattr( pg[i], attr ):
                 value = getattr(pg[i], attr)
+
                 if(attr == 'model_ref'):
                     if value != None:
                         value = {'name': value.name}
@@ -1047,199 +1048,37 @@ def updateNftData(context):
         
     hvym_meta_data = context.collection.hvym_meta_data
     setCollectionId(context.collection)
-    valProps = {}
-    meshProps = {}
-    meshSets = {}
-    morphSets = {}
-    animProps = {}
-    materials = {}
-    materialSets = {}
     nodes = []
-    menu_data = {'name': None, 'primary_color': None, 'secondary_color': None, 'text_color': None, 'alignment': None}
-    prop_label_data = None
-
-    for i in range(len(hvym_meta_data)):
-        int_props = {
-            'default': hvym_meta_data[i].int_default, 
-            'min': hvym_meta_data[i].int_min, 
-            'max': hvym_meta_data[i].int_max,
-            'prop_slider_type': hvym_meta_data[i].prop_slider_type,
-            'prop_action_type': hvym_meta_data[i].prop_action_type,
-            'widget_type': hvym_meta_data[i].prop_slider_type,
-            'show': hvym_meta_data[i].show
-            }
-
-        if hvym_meta_data[i].prop_value_type == 'Float':
-            int_props = {
-                'default': hvym_meta_data[i].float_default, 
-                'min': hvym_meta_data[i].float_min, 
-                'max': hvym_meta_data[i].float_max,
-                'prop_slider_type': hvym_meta_data[i].prop_slider_type,
-                'prop_action_type': hvym_meta_data[i].prop_action_type,
-                'widget_type': hvym_meta_data[i].prop_slider_type,
-                'show': hvym_meta_data[i].show
-                }
-
-        prop_label_data = {'value_prop_label': hvym_meta_data[i].value_prop_label, 'mesh_prop_label': hvym_meta_data[i].mesh_prop_label, 'mat_prop_label': hvym_meta_data[i].mat_prop_label, 'anim_prop_label': hvym_meta_data[i].anim_prop_label, 'mesh_set_label': hvym_meta_data[i].mesh_set_label, 'morph_set_label': hvym_meta_data[i].morph_set_label, 'mat_set_label': hvym_meta_data[i].mat_set_label}
-
-        if hvym_meta_data[i].trait_type == 'property':
-            valProps[hvym_meta_data[i].type] = int_props
-
-        elif hvym_meta_data[i].trait_type == 'mesh':
-            if hvym_meta_data[i].model_ref != None:
-                mesh_data = {
-                            'name': hvym_meta_data[i].model_ref.name,
-                            'visible': hvym_meta_data[i].visible,
-                            'widget_type': hvym_meta_data[i].prop_toggle_type,
-                            'show': hvym_meta_data[i].show
-                            }
-
-                meshProps[hvym_meta_data[i].type] = mesh_data
-
-
-        elif hvym_meta_data[i].trait_type == 'mesh_set':
-            mesh_set_obj = {}
-            mesh_set_data = []
-            for m in hvym_meta_data[i].mesh_set:
-                if m.model_ref != None:
-                    mesh_data = {
-                            'name': m.model_ref.name,
-                            'visible': hvym_meta_data[i].visible
-                            }
-                    mesh_set_data.append(mesh_data)
-            mesh_set_obj['set'] = mesh_set_data
-            mesh_set_obj['selected_index'] = 0
-            mesh_set_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
-            mesh_set_obj['show'] = hvym_meta_data[i].show
-            meshSets[hvym_meta_data[i].type] = mesh_set_obj
-
-        elif hvym_meta_data[i].trait_type == 'morph_set':
-            morph_obj = {}
-            morph_sets = []
-
-            if hvym_meta_data[i].model_ref != None:
-                for m in hvym_meta_data[i].morph_set:
-                    morph_data = {}
-                    morph_data['name'] = m.name
-                    morph_data['default'] = m.float_default
-                    morph_data['min'] = m.float_min
-                    morph_data['max'] = m.float_max
-                    morph_sets.append(morph_data)
-                morph_obj['model_ref'] = hvym_meta_data[i].model_ref
-                morph_obj['set'] = morph_sets
-                morph_obj['widget_type'] = hvym_meta_data[i].prop_multi_widget_type
-                morph_obj['show'] = hvym_meta_data[i].show
-                morphSets[hvym_meta_data[i].type] = morph_obj
-
-        elif hvym_meta_data[i].trait_type == 'anim':
-            hvym_meta_data[i].anim_blending = hvym_meta_data[i].model_ref.animation_data.action_blend_type
-            widget_type = hvym_meta_data[i].prop_toggle_type
-            if hvym_meta_data[i].anim_loop == 'Clamp':
-                widget_type = hvym_meta_data[i].prop_anim_slider_type
-
-            anim_obj = {
-                        'name': hvym_meta_data[i].type,
-                        'loop': hvym_meta_data[i].anim_loop,
-                        'start': hvym_meta_data[i].anim_start,
-                        'end': hvym_meta_data[i].anim_end,
-                        'blending': hvym_meta_data[i].anim_blending,
-                        'weight': hvym_meta_data[i].anim_weight,
-                        'play': hvym_meta_data[i].anim_play,
-                        'model_ref': hvym_meta_data[i].model_ref,
-                        'widget_type': widget_type,
-                        'show': hvym_meta_data[i].show
-                        }
-
-            animProps[hvym_meta_data[i].type] = anim_obj;
-
-        elif hvym_meta_data[i].trait_type == 'mat_prop':
-            if hvym_meta_data[i].mat_ref != None:
-                mat_data = {
-                            'name': hvym_meta_data[i].mat_ref.name,
-                            'type': hvym_meta_data[i].mat_type,
-                            'emissive': hvym_meta_data[i].mat_emissive,
-                            'reflective': hvym_meta_data[i].mat_reflective,
-                            'iridescent': hvym_meta_data[i].mat_iridescent,
-                            'sheen': hvym_meta_data[i].mat_sheen,
-                            'widget_type': hvym_meta_data[i].prop_multi_widget_type,
-                            'show': hvym_meta_data[i].show,
-                            'mat_values': get_material_properties(hvym_meta_data[i].mat_ref)
-                            }
-                materials[hvym_meta_data[i].type] = mat_data
-
-        elif hvym_meta_data[i].trait_type == 'mat_set':
-            mat_obj = {}
-            mat_sets = []
-            mesh_set = []
-            for m in hvym_meta_data[i].mat_set:
-                if m.mat_ref != None:
-                    mat_sets.append(m.mat_ref)
-
-            for m in hvym_meta_data[i].mesh_set:
-                if m.model_ref != None:
-                    mesh_set.append(m.model_ref)
-
-            mat_obj['mesh_set'] = hvym_meta_data[i].mesh_set_name
-            mat_obj['set'] = mat_sets
-            mat_obj['selected_index'] = 0
-            mat_obj['material_id'] = hvym_meta_data[i].material_id
-            mat_obj['widget_type'] = hvym_meta_data[i].prop_selector_type
-            mat_obj['show'] = hvym_meta_data[i].show
-            materialSets[hvym_meta_data[i].type] = mat_obj
 
     for obj in context.collection.objects:
         node = {'name': obj.name, 'type': obj.type}
         nodes.append(node)
 
-    for i in range(len(context.scene.hvym_menu_meta_data)):
-        data = context.scene.hvym_menu_meta_data[i]
-        col_id = data['collection_id']
-        if col_id == context.collection.hvym_id:
-            menu_data['name'] = data.menu_name
-            menu_data['alignment'] = data.menu_alignment
-            menu_data['primary_color'] = color_to_hex(data.menu_primary_color)
-            menu_data['secondary_color'] = color_to_hex(data.menu_secondary_color)
-            menu_data['text_color'] = color_to_hex(data.menu_text_color)
-            break
-
-
-    params = ['parse-blender-hvym-collection', context.collection.name, context.collection.hvym_collection_type, context.collection.hvym_id, property_group_to_json(hvym_meta_data), property_group_to_json(context.scene.hvym_menu_meta_data), json.dumps(prop_label_data), json.dumps(nodes)]
-
-    # print(call_cli(params))
-    data = call_cli(params)
-    print(data)
-    jdata = json.loads(data)
-    # print(jdata['collectionName'])
-        
-
-    context.scene.hvym_collections_data.nftData['contract'] =                   {'mintable': context.scene.hvym_mintable,
-                                                                                'nftType': context.scene.hvym_nft_type,
-                                                                                'nftChain': context.scene.hvym_nft_chain,
-                                                                                'nftPrice': round(context.scene.hvym_nft_price, 4),
-                                                                                'premNftPrice': round(context.scene.hvym_prem_nft_price, 4),
-                                                                                'maxSupply': context.scene.hvym_max_supply,
-                                                                                'minterType': context.scene.hvym_minter_type,
-                                                                                'minterName': context.scene.hvym_minter_name,
-                                                                                'minterDesc': context.scene.hvym_minter_description,
-                                                                                'minterImage': context.scene.hvym_minter_image,
-                                                                                'minterVersion': context.scene.hvym_minter_version
-                                                                                }
-
-    # context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = jdata
-
-    context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = {'collectionName': context.collection.name,
-                                                                                'collectionType': context.collection.hvym_collection_type,
-                                                                                'valProps': valProps,
-                                                                                'meshProps': meshProps,
-                                                                                'meshSets': meshSets,
-                                                                                'morphSets': morphSets,
-                                                                                'animProps': animProps,
-                                                                                'matProps': materials,
-                                                                                'materialSets': materialSets,
-                                                                                "menuData": menu_data,
-                                                                                "propLabelData": prop_label_data,
-                                                                                "nodes": nodes
-                                                                                }
+    params = [
+        'contract-data',
+        context.scene.hvym_mintable,
+        context.scene.hvym_nft_type, 
+        context.scene.hvym_nft_chain, 
+        round(context.scene.hvym_nft_price, 4), 
+        round(context.scene.hvym_prem_nft_price, 4), 
+        context.scene.hvym_max_supply, 
+        context.scene.hvym_minter_type,
+        context.scene.hvym_minter_name,
+        context.scene.hvym_minter_description,
+        context.scene.hvym_minter_image,
+        context.scene.hvym_minter_version
+    ]
+    context.scene.hvym_collections_data.nftData['contract'] =json.loads(call_cli(params))
+    params = [
+        'parse-blender-hvym-collection', 
+        context.collection.name, 
+        context.collection.hvym_collection_type, 
+        context.collection.hvym_id, 
+        property_group_to_json(hvym_meta_data), 
+        property_group_to_json(context.scene.hvym_menu_meta_data), 
+        json.dumps(nodes)
+    ]
+    context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
     
 
 
