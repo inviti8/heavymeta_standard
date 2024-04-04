@@ -715,9 +715,13 @@ def call_cli_threaded(command):
 
 def call_cli(call_arr):
     result = None
+    arr = []
+    for p in call_arr:
+        arr.append(str(p))
+
     if os.path.isfile(CLI):
         cli_call = [CLI]
-        cli_call = cli_call+call_arr
+        cli_call = cli_call+arr
 
         call = subprocess.run(cli_call, capture_output=True, text=True, check=False)
 
@@ -1068,7 +1072,9 @@ def updateNftData(context):
         context.scene.hvym_minter_image,
         context.scene.hvym_minter_version
     ]
+
     context.scene.hvym_collections_data.nftData['contract'] =json.loads(call_cli(params))
+
     params = [
         'parse-blender-hvym-collection', 
         context.collection.name, 
