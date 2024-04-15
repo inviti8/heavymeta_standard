@@ -1085,6 +1085,7 @@ def updateNftData(context):
         property_group_to_json(context.scene.hvym_menu_meta_data), 
         json.dumps(nodes)
     ]
+
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
     
 
@@ -1560,6 +1561,14 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    call_param: bpy.props.EnumProperty(
+            name='Call Parameter',
+            description ="Set accepted parameter type for method call.",
+            items=(('NONE', 'None', ""),
+                ('STRING', 'String', ""),
+                ('INT', 'Int', ""),),
+            update=onUpdate)
+
     list_expanded: bpy.props.BoolProperty(
            name="List Collapsed",
            description="Bool for collapsing a list.",
@@ -1759,6 +1768,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default="Value Properties",
            update=onUpdate)
 
+    call_prop_label: bpy.props.StringProperty(
+           name="Call Property Label",
+           description="Re-map name for value properties in this collection.",
+           default="Call Properties",
+           update=onUpdate)
+
     mesh_prop_label: bpy.props.StringProperty(
            name="Mesh Property Label",
            description="Re-map name for mesh properties in this collection.",
@@ -1807,7 +1822,9 @@ class HVYM_UL_DataList(bpy.types.UIList):
 
         if item.trait_type == 'mesh':
             custom_icon = 'MESH_ICOSPHERE'
-        if item.trait_type == 'mesh_set':
+        elif item.trait_type == 'call':
+            custom_icon = 'SETTINGS'
+        elif item.trait_type == 'mesh_set':
             custom_icon = 'FILE_3D'
         elif item.trait_type == 'morph_set':
             custom_icon = 'SHAPEKEY_DATA'
@@ -1903,6 +1920,23 @@ class HVYM_LIST_NewPropItem(bpy.types.Operator):
         updateNftData(context)
 
         return{'FINISHED'}
+
+
+class HVYM_LIST_NewCallItem(bpy.types.Operator):
+    """Add a new method call property item to the list."""
+
+    bl_idname = "hvym_meta_data.new_call_item"
+    bl_label = "Add a new call item"
+
+    def execute(self, context):
+        item = context.collection.hvym_meta_data.add()
+        item.trait_type = 'call'
+        item.type = '*'
+        item.values = 'Call Property'
+        updateNftData(context)
+
+        return{'FINISHED'}
+
 
 class HVYM_LIST_NewMeshItem(bpy.types.Operator):
     """Add a new mesh item to the list."""
@@ -2927,6 +2961,7 @@ class HVYM_DataPanel(bpy.types.Panel):
 
         row = box.row()
         row.operator('hvym_meta_data.new_property_item', text='+', icon='FUND')
+        row.operator('hvym_meta_data.new_call_item', text='+', icon='SETTINGS')
         row.operator('hvym_meta_data.new_mesh_item', text='+', icon='MESH_ICOSPHERE')
         row.operator('hvym_meta_data.new_mesh_set', text='+', icon='FILE_3D')
         row.operator('hvym_meta_data.new_morph_set', text='+', icon='SHAPEKEY_DATA')
@@ -2942,9 +2977,10 @@ class HVYM_DataPanel(bpy.types.Panel):
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
             row = box.row()
             row.prop(item, "type")
-            row.prop(item, GetPropWidgetType(item))
-            row.prop(item, "show")
-            row = box.row()
+            if item.trait_type != 'call':
+                row.prop(item, GetPropWidgetType(item))
+                row.prop(item, "show")
+                row = box.row()
             if item.trait_type == 'property':
                 row.prop(item, "prop_value_type")
                 row.prop(item, "prop_action_type")
@@ -2957,6 +2993,10 @@ class HVYM_DataPanel(bpy.types.Panel):
                     row.prop(item, "float_default")
                     row.prop(item, "float_min")
                     row.prop(item, "float_max")
+            elif item.trait_type == 'call':
+                row = box.row()
+                row.prop(item, "call_param")
+                row = box.row()
             elif item.trait_type == 'morph_set':
                 row.enabled = False
                 row.prop(item, "model_ref")
@@ -3007,21 +3047,24 @@ class HVYM_DataPanel(bpy.types.Panel):
         row.operator('hvym_menu_meta_data.new_menu_transform', text='Add Menu Transform', icon='OBJECT_ORIGIN')
         box = col.box()
         row = box.row()
-        row.label(text="Property Names:")
-        row = box.row()
-        row.prop(item, "value_prop_label")
-        row = box.row()
-        row.prop(item, "mesh_prop_label")
-        row = box.row()
-        row.prop(item, "mat_prop_label")
-        row = box.row()
-        row.prop(item, "anim_prop_label")
-        row = box.row()
-        row.prop(item, "mesh_set_label")
-        row = box.row()
-        row.prop(item, "morph_set_label")
-        row = box.row()
-        row.prop(item, "mat_set_label")
+        
+        if ctx.hvym_list_index >= 0 and ctx.hvym_meta_data:
+            item = ctx.hvym_meta_data[ctx.hvym_list_index]
+            row.label(text="Property Names:")
+            row = box.row()
+            row.prop(item, "value_prop_label")
+            row = box.row()
+            row.prop(item, "mesh_prop_label")
+            row = box.row()
+            row.prop(item, "mat_prop_label")
+            row = box.row()
+            row.prop(item, "anim_prop_label")
+            row = box.row()
+            row.prop(item, "mesh_set_label")
+            row = box.row()
+            row.prop(item, "morph_set_label")
+            row = box.row()
+            row.prop(item, "mat_set_label")
 
 
 
@@ -3500,6 +3543,7 @@ blender_classes = [
     HVYM_UL_MorphSetList,
     HVYM_MENU_NewMenuTransform,
     HVYM_LIST_NewPropItem,
+    HVYM_LIST_NewCallItem,
     HVYM_LIST_NewMeshItem,
     HVYM_LIST_NewMeshSet,
     HVYM_LIST_NewMeshSetItem,
