@@ -1539,13 +1539,19 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
                 ('none', 'None', ""),),
             update=onUpdate)
 
+    prop_immutable: bpy.props.BoolProperty(
+           name="Immutable",
+           description="If a propety is immutable, it is minted, and can't be updated after minting.",
+           default=True,
+           update=onUpdate)
+
     prop_action_type: bpy.props.EnumProperty(
             name='Action Type',
             description ="Set property action type.",
-            items=(('Immutable', 'Immutable', ""),
-                ('Incremental', 'Incremental', ""),
+            items=(('Incremental', 'Incremental', ""),
                 ('Decremental', 'Decremental', ""),
-                ('Bicremental', 'Bicremental', ""),),
+                ('Bicremental', 'Bicremental', ""),
+                ('Static', 'Static', ""),),
             update=onUpdate)
 
     prop_use_case: bpy.props.EnumProperty(
@@ -1593,6 +1599,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default=1,
            update=onUpdate)
 
+    int_amount: bpy.props.IntProperty(
+           name="Amount",
+           description="Amount to increment or decrement.",
+           default=1,
+           update=onUpdate)
+
     float_default: bpy.props.FloatProperty(
            name="Default",
            description="Add default value.",
@@ -1609,6 +1621,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            name="Max",
            description="Add maximum value.",
            default=1.0,
+           update=onUpdate)
+
+    float_amount: bpy.props.IntProperty(
+           name="Amount",
+           description="Amount to increment or decrement.",
+           default=1,
            update=onUpdate)
 
     visible: bpy.props.BoolProperty(
@@ -2984,15 +3002,20 @@ class HVYM_DataPanel(bpy.types.Panel):
             if item.trait_type == 'property':
                 row.prop(item, "prop_value_type")
                 row.prop(item, "prop_action_type")
+                row.prop(item, "prop_immutable")
                 row = box.row()
                 if item.prop_value_type == 'Int':
                     row.prop(item, "int_default")
                     row.prop(item, "int_min")
                     row.prop(item, "int_max")
+                    if item.prop_action_type != 'Static':
+                        row.prop(item, "int_amount")
                 elif item.prop_value_type == 'Float':
                     row.prop(item, "float_default")
                     row.prop(item, "float_min")
                     row.prop(item, "float_max")
+                    if item.prop_action_type != 'Static':
+                        row.prop(item, "float_amount")
             elif item.trait_type == 'call':
                 row = box.row()
                 row.prop(item, "call_param")
