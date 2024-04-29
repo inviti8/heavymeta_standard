@@ -1675,7 +1675,7 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
     anim_play: bpy.props.BoolProperty(
            name="Play",
            description="If animation is playing or not.",
-           default=True,
+           default=False,
            update=onUpdate)
 
     mat_type: bpy.props.StringProperty(
