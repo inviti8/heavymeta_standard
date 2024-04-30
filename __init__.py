@@ -1042,6 +1042,7 @@ def property_group_to_dict(pg):
 
 
 def property_group_to_json(pg):
+    #print(json.dumps(property_group_to_dict(pg)))
     return json.dumps(property_group_to_dict(pg))
 
 
@@ -1457,6 +1458,7 @@ class HVYM_UL_MorphSetList(bpy.types.UIList):
             layout.prop(item, "float_min")
             layout.prop(item, "float_max")
 
+
 def GetPropWidgetType(item):
     result = 'meter'
     if item.trait_type == 'property':
@@ -1473,6 +1475,38 @@ def GetPropWidgetType(item):
         result = 'prop_multi_widget_type'
 
     return result
+
+
+class HVYM_NavDataItem(bpy.types.PropertyGroup):
+    """Group of properties representing various meta data."""
+
+    trait_type: bpy.props.StringProperty(
+           name="Type",
+           description="navigation meta-data trait type",
+           default="",
+           update=onUpdate)
+
+    type: bpy.props.StringProperty(
+           name="Name",
+           description="A name for this item",
+           default="",
+           update=onUpdate)
+
+    anim_interaction_type: bpy.props.EnumProperty(
+            name='Interaction',
+            description ="Set interaction for this navigation animation.",
+            items=(('none', 'None', ""),
+                ('click', 'Click', ""),
+                ('double_click', 'Double Click', ""),
+                ('mouse_wheel', 'Mouse Wheel', ""),),
+            update=onUpdate)
+
+    values: bpy.props.StringProperty(
+           name="Values",
+           description="",
+           default="",
+           update=onUpdate)
+
 
 class HVYM_DataItem(bpy.types.PropertyGroup):
     """Group of properties representing various meta data."""
@@ -1645,7 +1679,6 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
                 ('Clamp', 'Clamp', ""),
                 ('PingPong', 'Ping Pong', ""),),
             update=onUpdate)
-
 
     anim_start: bpy.props.FloatProperty(
            name="Frame Start",
@@ -1854,6 +1887,8 @@ class HVYM_UL_DataList(bpy.types.UIList):
             custom_icon = 'OVERLAY'
         elif item.trait_type == 'toggle':
             custom_icon = 'CHECKMARK'
+        elif item.trait_type == 'navigation':
+            custom_icon = 'DRIVER_TRANSFORM'
 
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -1920,6 +1955,47 @@ class HVYM_MENU_NewMenuTransform(bpy.types.Operator):
             context.collection.hvym_menu_index = data.menu_index
 
         return{'FINISHED'}
+
+
+class HVYM_LIST_NewNavPropItem(bpy.types.Operator):
+    """Add a new numeric property item to the list."""
+
+    bl_idname = "hvym_meta_data.new_nav_property_item"
+    bl_label = "Add a new navigation property item"
+
+    def execute(self, context):
+        item = context.collection.hvym_nav_meta_data.add()
+        item.trait_type = 'navigation'
+        item.type = '*'
+        item.values = 'Navigation Property'
+
+        updateNftData(context)
+
+        return{'FINISHED'}
+
+
+class HVYM_LIST_DeleteNavItem(bpy.types.Operator):
+    """Delete the selected item from the list."""
+
+    bl_idname = "hvym_meta_data.delete_nav_item"
+    bl_label = "Deletes an navigation item"
+
+    @classmethod
+    def poll(cls, context):
+        return context.collection.hvym_nav_meta_data
+
+    def execute(self, context):
+        ctx = context.collection
+        hvym_nav_meta_data = context.collection.hvym_nav_meta_data
+        index = context.collection.hvym_nav_list_index
+        item = ctx.hvym_nav_meta_data[index]
+
+
+        hvym_nav_meta_data.remove(index)
+        context.collection.hvym_nav_list_index = min(max(0, index - 1), len(hvym_nav_meta_data) - 1)
+
+        return{'FINISHED'}
+
 
 class HVYM_LIST_NewPropItem(bpy.types.Operator):
     """Add a new numeric property item to the list."""
@@ -2939,6 +3015,52 @@ class HVYM_Menu_Transform_Panel(bpy.types.Panel):
             row = box.row()
             row.label(text='Menu #: '+str(item.menu_index))
 
+
+class HVYM_NLA_DataPanel(bpy.types.Panel):
+    """Creates a New Tab & Panel in the Action Editor"""
+    bl_label = "Heavymeta Standard Data"
+    bl_idname = "OBJECT_PT_heavymeta_standard_data"
+    bl_space_type = 'NLA_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = 'Heavy Meta' # This will create a new tab in the Action editor with this name
+    bl_context = "collection"
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.active_object
+        return (ob is not None and ob.animation_data is not None and ob.animation_data.action is not None)
+
+    def draw_header(self, context):
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        pcoll = preview_collections["main"]
+        logo = pcoll["logo"]
+        row.label(text="", icon_value=logo.icon_id)
+
+    def draw(self, context):
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
+        ctx = context.collection
+        row.separator()
+        box = col.box()
+        row = box.row()
+        row.separator()
+        row.label(text="Action:")
+        row = box.row()
+        row = box.row()
+        row.template_list("HVYM_UL_DataList", "", ctx,
+                          "hvym_nav_meta_data", ctx, "hvym_nav_list_index")
+        row = box.row()
+        row.operator('hvym_meta_data.new_nav_property_item', text='+', icon='DRIVER_TRANSFORM')
+        row.operator('hvym_meta_data.delete_nav_item', text='', icon='CANCEL')
+        if ctx.hvym_nav_list_index >= 0 and ctx.hvym_nav_meta_data:
+            item = ctx.hvym_nav_meta_data[ctx.hvym_nav_list_index]
+            row.prop(item, "type")
+        
+
             
 
 class HVYM_DataPanel(bpy.types.Panel):
@@ -3559,12 +3681,15 @@ blender_classes = [
     HVYM_MeshSet,
     HVYM_MaterialSet,
     HVYM_MorphSet,
+    HVYM_NavDataItem,
     HVYM_DataItem,
     HVYM_UL_DataList,
     HVYM_UL_MeshSetList,
     HVYM_UL_MaterialSetList,
     HVYM_UL_MorphSetList,
     HVYM_MENU_NewMenuTransform,
+    HVYM_LIST_NewNavPropItem,
+    HVYM_LIST_DeleteNavItem,
     HVYM_LIST_NewPropItem,
     HVYM_LIST_NewCallItem,
     HVYM_LIST_NewMeshItem,
@@ -3600,6 +3725,7 @@ blender_classes = [
     HVYM_DeployNFT,
     HVYM_DeployConfirmNFTDeploytDialog,
     HVYM_Menu_Transform_Panel,
+    HVYM_NLA_DataPanel,
     HVYM_DataPanel,
     HVYM_ScenePanel,
     HVYM_NFTDataExtensionProps,
@@ -3642,6 +3768,8 @@ def register():
     
     bpy.types.Scene.hvym_collections_data = bpy.props.PointerProperty(type=HVYM_NFTDataExtensionProps)
     bpy.types.Scene.hvym_menu_meta_data = bpy.props.CollectionProperty(type = HVYM_MenuDataItem)
+    bpy.types.Collection.hvym_nav_meta_data = bpy.props.CollectionProperty(type = HVYM_NavDataItem)
+    bpy.types.Collection.hvym_nav_list_index = bpy.props.IntProperty(name = "Index for active hvym_nav_meta_data", default = 0)
     bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_DataItem)
     bpy.types.Collection.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
     bpy.types.Object.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
@@ -3669,6 +3797,8 @@ def unregister():
 
     del bpy.types.Scene.hvym_collections_data
     del bpy.types.Scene.hvym_menu_meta_data
+    del bpy.types.Collection.hvym_nav_meta_data
+    del bpy.types.Collection.hvym_nav_list_index
     del bpy.types.Collection.hvym_meta_data
     del bpy.types.Collection.hvym_menu_index
     del bpy.types.Object.hvym_menu_index
