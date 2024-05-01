@@ -1225,7 +1225,7 @@ PROPS = [
     ('hvym_nft_price', bpy.props.FloatProperty(name='NFT-Price', default=0.01, description ="Price of NFT in eth.", update=onUpdate)),
     ('hvym_mintable', bpy.props.BoolProperty(name='Mintable', description ="If true, this model is a mintable NFT.", default=True)),
     ('hvym_prem_nft_price', bpy.props.FloatProperty(name='Premium-NFT-Price', default=0.01, description ="Premium price of customized NFT in eth.", update=onUpdate)),
-    ('hvym_max_supply', bpy.props.IntProperty(name='Max-Supply', default=-1, description ="Max number that can be minted, if -1 supply is infinite.", update=onUpdate)),
+    ('hvym_max_supply', bpy.props.IntProperty(name='Max-Supply', default=0, description ="Max number that can be minted, if -1 supply is infinite.", update=onUpdate)),
     ('hvym_minter_type', bpy.props.EnumProperty(
         name='Minter-Type',
         items=minterTypes,
@@ -1239,7 +1239,7 @@ PROPS = [
     ('hvym_debug_url', bpy.props.StringProperty(name='Url', default='', description ="Current running debug url.", update=onUpdate)),
     ('hvym_daemon_running', bpy.props.BoolProperty(name="Daemon Running", description="Toggle the test daemon.", default=False)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
-    ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=-1, description ="Version of the NFT minter.", update=onUpdate)),
+    ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=0, description ="Version of the NFT minter.", update=onUpdate)),
     ('hvym_export_name', bpy.props.StringProperty(name='Export-Name', default=FILE_NAME, description ="Gltf export path for debug & deploy.", update=onUpdate)),
     ('hvym_export_path', bpy.props.StringProperty(name='Export-Path', subtype='FILE_PATH', default='', description ="Gltf export path for debug & deploy.", update=onUpdate)),
 ]
@@ -1482,7 +1482,7 @@ class HVYM_NavDataItem(bpy.types.PropertyGroup):
 
     trait_type: bpy.props.StringProperty(
            name="Type",
-           description="navigation meta-data trait type",
+           description="action meta-data trait type",
            default="",
            update=onUpdate)
 
@@ -1492,20 +1492,33 @@ class HVYM_NavDataItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    values: bpy.props.StringProperty(
+           name="Values",
+           description="",
+           default="",
+           update=onUpdate)
+
     anim_interaction_type: bpy.props.EnumProperty(
             name='Interaction',
-            description ="Set interaction for this navigation animation.",
+            description ="Set interaction for this action animation.",
             items=(('none', 'None', ""),
                 ('click', 'Click', ""),
                 ('double_click', 'Double Click', ""),
                 ('mouse_wheel', 'Mouse Wheel', ""),),
             update=onUpdate)
 
-    values: bpy.props.StringProperty(
-           name="Values",
-           description="",
-           default="",
-           update=onUpdate)
+    mesh_interaction_type: bpy.props.EnumProperty(
+            name='Interaction',
+            description ="Set interaction for this action animation.",
+            items=(('none', 'None', ""),
+                ('click', 'Click', ""),
+                ('double_click', 'Double Click', ""),
+                ('mouse_over', 'Mouse Over', ""),),
+            update=onUpdate)
+
+    model_ref: bpy.props.PointerProperty(
+        name="Model Reference",
+        type=bpy.types.Object)
 
 
 class HVYM_DataItem(bpy.types.PropertyGroup):
@@ -1887,8 +1900,10 @@ class HVYM_UL_DataList(bpy.types.UIList):
             custom_icon = 'OVERLAY'
         elif item.trait_type == 'toggle':
             custom_icon = 'CHECKMARK'
-        elif item.trait_type == 'navigation':
+        elif item.trait_type == 'action':
             custom_icon = 'DRIVER_TRANSFORM'
+        elif item.trait_type == 'mesh_action':
+            custom_icon = 'MESH_ICOSPHERE'
 
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -1957,28 +1972,63 @@ class HVYM_MENU_NewMenuTransform(bpy.types.Operator):
         return{'FINISHED'}
 
 
-class HVYM_LIST_NewNavPropItem(bpy.types.Operator):
-    """Add a new numeric property item to the list."""
+class HVYM_LIST_NewActionPropItem(bpy.types.Operator):
+    """Add a new action property item to the list."""
 
-    bl_idname = "hvym_meta_data.new_nav_property_item"
-    bl_label = "Add a new navigation property item"
+    bl_idname = "hvym_meta_data.new_action_property_item"
+    bl_label = "Add a new action property item"
 
     def execute(self, context):
-        item = context.collection.hvym_nav_meta_data.add()
-        item.trait_type = 'navigation'
-        item.type = '*'
-        item.values = 'Navigation Property'
+        ob = context.active_object
 
-        updateNftData(context)
+        if (ob is not None and ob.animation_data is not None and ob.animation_data.nla_tracks is not None and ob.animation_data.nla_tracks.active is not None):
+            action_name = ob.animation_data.nla_tracks.active.name
+            in_list = False
+            for i in range(len(context.collection.hvym_nav_meta_data)):
+                if (context.collection.hvym_nav_meta_data[i].type == action_name):
+                    in_list = True
+            if(in_list == False):      
+                item = context.collection.hvym_nav_meta_data.add()
+                item.trait_type = 'action'
+                item.type = action_name
+                item.values = 'Action Property'
+
+                updateNftData(context)
 
         return{'FINISHED'}
 
 
-class HVYM_LIST_DeleteNavItem(bpy.types.Operator):
+class HVYM_LIST_NewActionMeshPropItem(bpy.types.Operator):
+    """Add a new mesh action property item to the list."""
+
+    bl_idname = "hvym_meta_data.new_action_mesh_property_item"
+    bl_label = "Add a new action mesh property item"
+
+    def execute(self, context):
+        ob = context.active_object
+
+        if (ob is not None and ob.animation_data is not None and ob.animation_data.nla_tracks is not None and ob.animation_data.nla_tracks.active is not None):
+            action_name = ob.animation_data.nla_tracks.active.name
+            in_list = False
+            for i in range(len(context.collection.hvym_nav_meta_data)):
+                if (context.collection.hvym_nav_meta_data[i].type == action_name):
+                    in_list = True
+            if(in_list == False):      
+                item = context.collection.hvym_nav_meta_data.add()
+                item.trait_type = 'mesh_action'
+                item.type = action_name
+                item.values = 'Action Property'
+
+                updateNftData(context)
+
+        return{'FINISHED'}
+
+
+class HVYM_LIST_DeleteActionItem(bpy.types.Operator):
     """Delete the selected item from the list."""
 
     bl_idname = "hvym_meta_data.delete_nav_item"
-    bl_label = "Deletes an navigation item"
+    bl_label = "Deletes an action item"
 
     @classmethod
     def poll(cls, context):
@@ -1989,7 +2039,6 @@ class HVYM_LIST_DeleteNavItem(bpy.types.Operator):
         hvym_nav_meta_data = context.collection.hvym_nav_meta_data
         index = context.collection.hvym_nav_list_index
         item = ctx.hvym_nav_meta_data[index]
-
 
         hvym_nav_meta_data.remove(index)
         context.collection.hvym_nav_list_index = min(max(0, index - 1), len(hvym_nav_meta_data) - 1)
@@ -3028,7 +3077,7 @@ class HVYM_NLA_DataPanel(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         ob = context.active_object
-        return (ob is not None and ob.animation_data is not None and ob.animation_data.action is not None)
+        return (ob is not None and ob.animation_data is not None and ob.animation_data.nla_tracks is not None and len(ob.animation_data.nla_tracks.keys())>0 and ob.animation_data.nla_tracks.active is not None)
 
     def draw_header(self, context):
         col = self.layout.column()
@@ -3042,7 +3091,6 @@ class HVYM_NLA_DataPanel(bpy.types.Panel):
         col = self.layout.column()
         box = col.row()
         row = box.row()
-        row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
         ctx = context.collection
         row.separator()
         box = col.box()
@@ -3054,13 +3102,18 @@ class HVYM_NLA_DataPanel(bpy.types.Panel):
         row.template_list("HVYM_UL_DataList", "", ctx,
                           "hvym_nav_meta_data", ctx, "hvym_nav_list_index")
         row = box.row()
-        row.operator('hvym_meta_data.new_nav_property_item', text='+', icon='DRIVER_TRANSFORM')
+        row.operator('hvym_meta_data.new_action_property_item', text='+', icon='DRIVER_TRANSFORM')
+        row.operator('hvym_meta_data.new_action_mesh_property_item', text='+', icon='MESH_ICOSPHERE')
         row.operator('hvym_meta_data.delete_nav_item', text='', icon='CANCEL')
         if ctx.hvym_nav_list_index >= 0 and ctx.hvym_nav_meta_data:
             item = ctx.hvym_nav_meta_data[ctx.hvym_nav_list_index]
-            row.prop(item, "type")
-        
-
+            row = box.row()
+            if item.trait_type == 'action':
+                row.prop(item, "anim_interaction_type")
+            elif item.trait_type == 'mesh_action':
+                row.prop(item, "model_ref")
+                row = box.row()
+                row.prop(item, "mesh_interaction_type")
             
 
 class HVYM_DataPanel(bpy.types.Panel):
@@ -3688,8 +3741,9 @@ blender_classes = [
     HVYM_UL_MaterialSetList,
     HVYM_UL_MorphSetList,
     HVYM_MENU_NewMenuTransform,
-    HVYM_LIST_NewNavPropItem,
-    HVYM_LIST_DeleteNavItem,
+    HVYM_LIST_NewActionPropItem,
+    HVYM_LIST_NewActionMeshPropItem,
+    HVYM_LIST_DeleteActionItem,
     HVYM_LIST_NewPropItem,
     HVYM_LIST_NewCallItem,
     HVYM_LIST_NewMeshItem,
