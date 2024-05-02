@@ -1053,6 +1053,7 @@ def updateNftData(context):
         return
         
     hvym_meta_data = context.collection.hvym_meta_data
+    hvym_action_meta_data = context.scene.hvym_action_meta_data
     setCollectionId(context.collection)
     nodes = []
 
@@ -1076,6 +1077,7 @@ def updateNftData(context):
     ]
 
     context.scene.hvym_collections_data.nftData['contract'] =json.loads(call_cli(params))
+    # print(property_group_to_json(hvym_action_meta_data))
 
     params = [
         'parse-blender-hvym-collection', 
@@ -1317,6 +1319,32 @@ class HVYM_MenuDataItem(bpy.types.PropertyGroup):
            default=False)
 
 
+class HVYM_StringSet(bpy.types.PropertyGroup):
+    """Group of properties representing a set of strings."""
+
+    string: bpy.props.StringProperty(
+           name="String",
+           description="String reference.",
+           default="",
+           update=onUpdate)
+
+
+class HVYM_UL_StringSetList(bpy.types.UIList):
+    """Heavymeta string set list."""
+
+    def draw_item(self, context, layout, data, item, icon, active_data,
+                  active_propname, index):
+
+        # Make sure your code supports all 3 layout types
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.string, icon = 'NLA')
+
+
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text=item.string, icon = 'NLA')
+
+
 class HVYM_MeshSet(bpy.types.PropertyGroup):
     """Group of properties representing a set of meshes."""
 
@@ -1477,7 +1505,7 @@ def GetPropWidgetType(item):
     return result
 
 
-class HVYM_NavDataItem(bpy.types.PropertyGroup):
+class HVYM_ActionDataItem(bpy.types.PropertyGroup):
     """Group of properties representing various meta data."""
 
     trait_type: bpy.props.StringProperty(
@@ -1515,6 +1543,27 @@ class HVYM_NavDataItem(bpy.types.PropertyGroup):
                 ('double_click', 'Double Click', ""),
                 ('mouse_over', 'Mouse Over', ""),),
             update=onUpdate)
+
+    sequence_type: bpy.props.EnumProperty(
+            name='Sequence',
+            description ="Set sequence type for this action animation.",
+            items=(('loop', 'Loop', ""),
+                ('one_shot', 'One Shot', ""),),
+            update=onUpdate)
+
+    action_set_enum: bpy.props.EnumProperty(
+            name='Sequence',
+            description ="The set associated with the action.",
+            items=(('default', 'Default', ""),),
+            update=onUpdate)
+
+    set_index: bpy.props.IntProperty(
+           name="Set Index",
+           description="Items sharing the same index are grouped together.",
+           default=0,
+           update=onUpdate)
+
+    action_set: bpy.props.CollectionProperty(type = HVYM_StringSet)
 
     model_ref: bpy.props.PointerProperty(
         name="Model Reference",
@@ -1972,6 +2021,61 @@ class HVYM_MENU_NewMenuTransform(bpy.types.Operator):
         return{'FINISHED'}
 
 
+class HVYM_LIST_AddTrackToActionProp(bpy.types.Operator):
+    """Add a new action property item to the list."""
+
+    bl_idname = "hvym_meta_data.add_track_to_property_item"
+    bl_label = "Add a new track to property item"
+
+    def execute(self, context):
+        ob = context.active_object
+
+        if (ob is not None and ob.animation_data is not None and ob.animation_data.nla_tracks is not None and ob.animation_data.nla_tracks.active is not None):
+            action_name = ob.animation_data.nla_tracks.active.name
+            in_list = False
+            active_track = ob.animation_data.nla_tracks.active
+            hvym_action_list_index = context.scene.hvym_action_list_index 
+            item = context.scene.hvym_action_meta_data[hvym_action_list_index]
+
+            for i in range(len(item.action_set)):
+                if (item.action_set[i].string == action_name):
+                    in_list = True
+
+            if(in_list == False):
+                action_set = item.action_set.add()
+                action_set.string = action_name
+                item.set_index += 1
+
+        return{'FINISHED'}
+
+
+class HVYM_LIST_DeleteTrackFromActionProp(bpy.types.Operator):
+    """Delete a morph slot from the set. Morph is not deleted"""
+
+    bl_idname = "hvym_meta_data.delete_track_from_property_item"
+    bl_label = "Delete track from property item"
+
+    def execute(self, context):
+        ob = context.active_object
+
+        if (ob is not None and ob.animation_data is not None and ob.animation_data.nla_tracks is not None and ob.animation_data.nla_tracks.active is not None):
+            action_name = ob.animation_data.nla_tracks.active.name
+            in_list = False
+            for i in range(len(context.scene.hvym_action_meta_data)):
+                if (context.scene.hvym_action_meta_data[i].type == action_name):
+                    in_list = True
+            if(in_list == False):
+                hvym_action_list_index = context.scene.hvym_action_list_index
+                active_track = ob.animation_data.nla_tracks.active    
+                item = context.scene.hvym_action_meta_data[hvym_action_list_index]
+
+                item.action_set.remove(item.set_index)
+                item.set_index = min(max(0, item.set_index - 1), len(item.action_set) - 1)
+
+
+        return{'FINISHED'}
+
+
 class HVYM_LIST_NewActionPropItem(bpy.types.Operator):
     """Add a new action property item to the list."""
 
@@ -1984,16 +2088,20 @@ class HVYM_LIST_NewActionPropItem(bpy.types.Operator):
         if (ob is not None and ob.animation_data is not None and ob.animation_data.nla_tracks is not None and ob.animation_data.nla_tracks.active is not None):
             action_name = ob.animation_data.nla_tracks.active.name
             in_list = False
-            for i in range(len(context.collection.hvym_nav_meta_data)):
-                if (context.collection.hvym_nav_meta_data[i].type == action_name):
+            active_track = ob.animation_data.nla_tracks.active    
+            item = context.scene.hvym_action_meta_data.add()
+            for i in range(len(item.action_set)):
+                if (item.action_set[i].string == action_name):
                     in_list = True
-            if(in_list == False):      
-                item = context.collection.hvym_nav_meta_data.add()
+
+            if(in_list == False):
+                item.type = '*'
                 item.trait_type = 'action'
-                item.type = action_name
+                action_set = item.action_set.add()
+                action_set.string = action_name
                 item.values = 'Action Property'
 
-                updateNftData(context)
+                # updateNftData(context)
 
         return{'FINISHED'}
 
@@ -2010,16 +2118,19 @@ class HVYM_LIST_NewActionMeshPropItem(bpy.types.Operator):
         if (ob is not None and ob.animation_data is not None and ob.animation_data.nla_tracks is not None and ob.animation_data.nla_tracks.active is not None):
             action_name = ob.animation_data.nla_tracks.active.name
             in_list = False
-            for i in range(len(context.collection.hvym_nav_meta_data)):
-                if (context.collection.hvym_nav_meta_data[i].type == action_name):
+            for i in range(len(context.scene.hvym_action_meta_data)):
+                if (context.scene.hvym_action_meta_data[i].type == action_name):
                     in_list = True
             if(in_list == False):      
-                item = context.collection.hvym_nav_meta_data.add()
+                item = context.scene.hvym_action_meta_data.add()
                 item.trait_type = 'mesh_action'
-                item.type = action_name
+                item.type = '*'
+                action_set = item.action_set.add()
+                action_set.string = action_name
                 item.values = 'Action Property'
+                context.scene.hvym_action_list_index += 1
 
-                updateNftData(context)
+                # updateNftData(context)
 
         return{'FINISHED'}
 
@@ -2032,16 +2143,16 @@ class HVYM_LIST_DeleteActionItem(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.collection.hvym_nav_meta_data
+        return context.scene.hvym_action_meta_data
 
     def execute(self, context):
-        ctx = context.collection
-        hvym_nav_meta_data = context.collection.hvym_nav_meta_data
-        index = context.collection.hvym_nav_list_index
-        item = ctx.hvym_nav_meta_data[index]
+        ctx = context.scene
+        hvym_action_meta_data = context.scene.hvym_action_meta_data
+        index = context.scene.hvym_action_list_index
+        item = ctx.hvym_action_meta_data[index]
 
-        hvym_nav_meta_data.remove(index)
-        context.collection.hvym_nav_list_index = min(max(0, index - 1), len(hvym_nav_meta_data) - 1)
+        hvym_action_meta_data.remove(index)
+        context.scene.hvym_action_list_index = min(max(0, index - 1), len(hvym_action_meta_data) - 1)
 
         return{'FINISHED'}
 
@@ -2123,6 +2234,7 @@ class HVYM_LIST_NewMeshSet(bpy.types.Operator):
         updateNftData(context)
 
         return{'FINISHED'}
+
 
 class HVYM_LIST_NewMeshSetItem(bpy.types.Operator):
     """Add a new mesh set to the set."""
@@ -3072,7 +3184,7 @@ class HVYM_NLA_DataPanel(bpy.types.Panel):
     bl_space_type = 'NLA_EDITOR'
     bl_region_type = 'UI'
     bl_category = 'Heavy Meta' # This will create a new tab in the Action editor with this name
-    bl_context = "collection"
+    bl_context = "scene"
 
     @classmethod
     def poll(cls, context):
@@ -3091,22 +3203,33 @@ class HVYM_NLA_DataPanel(bpy.types.Panel):
         col = self.layout.column()
         box = col.row()
         row = box.row()
-        ctx = context.collection
+        ctx = context.scene
         row.separator()
         box = col.box()
         row = box.row()
         row.separator()
         row.label(text="Action:")
         row = box.row()
-        row = box.row()
         row.template_list("HVYM_UL_DataList", "", ctx,
-                          "hvym_nav_meta_data", ctx, "hvym_nav_list_index")
+                          "hvym_action_meta_data", ctx, "hvym_action_list_index")
         row = box.row()
         row.operator('hvym_meta_data.new_action_property_item', text='+', icon='DRIVER_TRANSFORM')
         row.operator('hvym_meta_data.new_action_mesh_property_item', text='+', icon='MESH_ICOSPHERE')
         row.operator('hvym_meta_data.delete_nav_item', text='', icon='CANCEL')
-        if ctx.hvym_nav_list_index >= 0 and ctx.hvym_nav_meta_data:
-            item = ctx.hvym_nav_meta_data[ctx.hvym_nav_list_index]
+        if ctx.hvym_action_list_index >= 0 and ctx.hvym_action_meta_data:
+            item = ctx.hvym_action_meta_data[ctx.hvym_action_list_index]
+            row = box.row()
+            row.prop(item, "type")
+            box = col.box()
+            row = box.row()
+            row.separator()
+            row.label(text="Tracks:")
+            row = box.row()
+            row.template_list("HVYM_UL_StringSetList", "", item,
+                        "action_set", item, "set_index")
+            row = box.row()
+            row.operator('hvym_meta_data.add_track_to_property_item', text='', icon='ADD')
+            row.operator('hvym_meta_data.delete_track_from_property_item', text='', icon='REMOVE')
             row = box.row()
             if item.trait_type == 'action':
                 row.prop(item, "anim_interaction_type")
@@ -3114,6 +3237,8 @@ class HVYM_NLA_DataPanel(bpy.types.Panel):
                 row.prop(item, "model_ref")
                 row = box.row()
                 row.prop(item, "mesh_interaction_type")
+            row = box.row()
+            row.prop(item, "sequence_type")
             
 
 class HVYM_DataPanel(bpy.types.Panel):
@@ -3731,16 +3856,20 @@ blender_classes = [
     HVYM_MenuTransform,
     HVYM_MenuTransformGroup,
     HVYM_MenuDataItem,
+    HVYM_StringSet,
     HVYM_MeshSet,
     HVYM_MaterialSet,
     HVYM_MorphSet,
-    HVYM_NavDataItem,
+    HVYM_ActionDataItem,
     HVYM_DataItem,
     HVYM_UL_DataList,
+    HVYM_UL_StringSetList,
     HVYM_UL_MeshSetList,
     HVYM_UL_MaterialSetList,
     HVYM_UL_MorphSetList,
     HVYM_MENU_NewMenuTransform,
+    HVYM_LIST_AddTrackToActionProp,
+    HVYM_LIST_DeleteTrackFromActionProp,
     HVYM_LIST_NewActionPropItem,
     HVYM_LIST_NewActionMeshPropItem,
     HVYM_LIST_DeleteActionItem,
@@ -3822,8 +3951,8 @@ def register():
     
     bpy.types.Scene.hvym_collections_data = bpy.props.PointerProperty(type=HVYM_NFTDataExtensionProps)
     bpy.types.Scene.hvym_menu_meta_data = bpy.props.CollectionProperty(type = HVYM_MenuDataItem)
-    bpy.types.Collection.hvym_nav_meta_data = bpy.props.CollectionProperty(type = HVYM_NavDataItem)
-    bpy.types.Collection.hvym_nav_list_index = bpy.props.IntProperty(name = "Index for active hvym_nav_meta_data", default = 0)
+    bpy.types.Scene.hvym_action_meta_data = bpy.props.CollectionProperty(type = HVYM_ActionDataItem)
+    bpy.types.Scene.hvym_action_list_index = bpy.props.IntProperty(name = "Index for active hvym_action_meta_data", default = 0)
     bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_DataItem)
     bpy.types.Collection.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
     bpy.types.Object.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
@@ -3851,8 +3980,8 @@ def unregister():
 
     del bpy.types.Scene.hvym_collections_data
     del bpy.types.Scene.hvym_menu_meta_data
-    del bpy.types.Collection.hvym_nav_meta_data
-    del bpy.types.Collection.hvym_nav_list_index
+    del bpy.types.Scene.hvym_action_meta_data
+    del bpy.types.Scene.hvym_action_list_index
     del bpy.types.Collection.hvym_meta_data
     del bpy.types.Collection.hvym_menu_index
     del bpy.types.Object.hvym_menu_index
