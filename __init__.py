@@ -979,6 +979,12 @@ def property_group_to_dict(pg):
                 if(attr == 'model_ref'):
                     if value != None:
                         value = {'name': value.name}
+                if(attr == 'action_set'):
+                    if value != None:
+                        a_set = []
+                        for a in pg[i].action_set:
+                            a_set.append(a.string)
+                    value = a_set
                 if(attr == 'mesh_set'):
                     if value != None:
                         m_set = []
@@ -1077,7 +1083,6 @@ def updateNftData(context):
     ]
 
     context.scene.hvym_collections_data.nftData['contract'] =json.loads(call_cli(params))
-    # print(property_group_to_json(hvym_action_meta_data))
 
     params = [
         'parse-blender-hvym-collection', 
@@ -1086,7 +1091,8 @@ def updateNftData(context):
         context.collection.hvym_id, 
         property_group_to_json(hvym_meta_data), 
         property_group_to_json(context.scene.hvym_menu_meta_data), 
-        json.dumps(nodes)
+        json.dumps(nodes),
+        property_group_to_json(hvym_action_meta_data)
     ]
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
@@ -1549,12 +1555,6 @@ class HVYM_ActionDataItem(bpy.types.PropertyGroup):
             description ="Set sequence type for this action animation.",
             items=(('loop', 'Loop', ""),
                 ('one_shot', 'One Shot', ""),),
-            update=onUpdate)
-
-    action_set_enum: bpy.props.EnumProperty(
-            name='Sequence',
-            description ="The set associated with the action.",
-            items=(('default', 'Default', ""),),
             update=onUpdate)
 
     set_index: bpy.props.IntProperty(
