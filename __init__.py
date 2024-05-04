@@ -2076,6 +2076,71 @@ class HVYM_LIST_DeleteTrackFromActionProp(bpy.types.Operator):
         return{'FINISHED'}
 
 
+class HVYM_LIST_MoveTrack(bpy.types.Operator):
+    """Move a track in the list."""
+
+    bl_idname = "hvym_meta_data.move_track"
+    bl_label = "Move an item in the list"
+
+    direction = bpy.props.EnumProperty(items=(('UP', 'Up', ""),
+                                              ('DOWN', 'Down', ""),))
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.hvym_action_meta_data
+
+    def move_index(self):
+        hvym_action_list_index = bpy.context.scene.hvym_action_list_index   
+        item = bpy.context.scene.hvym_action_meta_data[hvym_action_list_index]
+        index = item.set_index
+        list_length = len(item.action_set) - 1  # (index starts at 0)
+        new_index = index + (-1 if self.direction == 'UP' else 1)
+
+        item.set_index = max(0, min(new_index, list_length))
+
+    def execute(self, context):
+        hvym_action_list_index = context.scene.hvym_action_list_index
+        item = context.scene.hvym_action_meta_data[hvym_action_list_index]
+        index = item.set_index
+
+        neighbor = index + (-1 if self.direction == 'UP' else 1)
+        item.action_set.move(neighbor, index)
+        self.move_index(self)
+
+        return{'FINISHED'}
+
+class HVYM_LIST_TrackDirectionUp(bpy.types.Operator):
+    """Set direction of HVYM_LIST_MoveTrack.direction to UP."""
+    bl_idname = "hvym_meta_data.set_track_direction_up"
+    bl_label = "Set the move direction to up"
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.hvym_action_meta_data
+
+    def execute(self, context):
+        
+        HVYM_LIST_MoveTrack.direction = "UP"
+        HVYM_LIST_MoveTrack.execute(HVYM_LIST_MoveTrack, context)
+        return{'FINISHED'}
+
+
+class HVYM_LIST_TrackDirectionDown(bpy.types.Operator):
+    """Set direction of HVYM_LIST_MoveTrack.direction to Down."""
+    bl_idname = "hvym_meta_data.set_track_direction_down"
+    bl_label = "Set the move direction to down"
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.hvym_action_meta_data
+
+    def execute(self, context):
+        
+        HVYM_LIST_MoveTrack.direction = "DOWN"
+        HVYM_LIST_MoveTrack.execute(HVYM_LIST_MoveTrack, context)
+        return{'FINISHED'}
+
+
 class HVYM_LIST_NewActionPropItem(bpy.types.Operator):
     """Add a new action property item to the list."""
 
@@ -2262,6 +2327,7 @@ class HVYM_LIST_NewMeshSetItem(bpy.types.Operator):
         updateNftData(context)
 
         return{'FINISHED'}
+
 
 class HVYM_LIST_AddMeshSetItemToSet(bpy.types.Operator):
     """Add a new mesh set to the set."""
@@ -2582,7 +2648,6 @@ class HVYM_LIST_MoveItem(bpy.types.Operator):
         return context.collection.hvym_meta_data
 
     def move_index(self):
-        """ Move index of an item render queue while clamping it. """
 
         index = bpy.context.collection.hvym_list_index
         list_length = len(bpy.context.collection.hvym_meta_data) - 1  # (index starts at 0)
@@ -3230,6 +3295,8 @@ class HVYM_NLA_DataPanel(bpy.types.Panel):
             row = box.row()
             row.operator('hvym_meta_data.add_track_to_property_item', text='', icon='ADD')
             row.operator('hvym_meta_data.delete_track_from_property_item', text='', icon='REMOVE')
+            row.operator('hvym_meta_data.set_track_direction_up', text='', icon='SORT_DESC')
+            row.operator('hvym_meta_data.set_track_direction_down', text='', icon='SORT_ASC')
             row = box.row()
             if item.trait_type == 'action':
                 row.prop(item, "anim_interaction_type")
@@ -3870,6 +3937,9 @@ blender_classes = [
     HVYM_MENU_NewMenuTransform,
     HVYM_LIST_AddTrackToActionProp,
     HVYM_LIST_DeleteTrackFromActionProp,
+    HVYM_LIST_MoveTrack,
+    HVYM_LIST_TrackDirectionUp,
+    HVYM_LIST_TrackDirectionDown,
     HVYM_LIST_NewActionPropItem,
     HVYM_LIST_NewActionMeshPropItem,
     HVYM_LIST_DeleteActionItem,
