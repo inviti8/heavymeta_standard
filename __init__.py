@@ -1565,6 +1565,12 @@ class HVYM_ActionDataItem(bpy.types.PropertyGroup):
 
     action_set: bpy.props.CollectionProperty(type = HVYM_StringSet)
 
+    additive: bpy.props.BoolProperty(
+           name="Additive Blending",
+           description="If true, blending set to additive.",
+           default=False,
+           update=onUpdate)
+
     model_ref: bpy.props.PointerProperty(
         name="Model Reference",
         type=bpy.types.Object)
@@ -3306,6 +3312,7 @@ class HVYM_NLA_DataPanel(bpy.types.Panel):
                 row.prop(item, "mesh_interaction_type")
             row = box.row()
             row.prop(item, "sequence_type")
+            row.prop(item, "additive")
             
 
 class HVYM_DataPanel(bpy.types.Panel):
