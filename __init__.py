@@ -1096,12 +1096,14 @@ def updateNftData(context):
     ]
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
+    print(json.loads(call_cli(params)))
     
 
 
 def onUpdate(self, context):
     RebuildMaterialSets(context)
     updateNftData(context)
+    context.scene.hvym_daemon_path = os.path.join(context.scene.hvym_project_path.rstrip(), context.scene.hvym_project_type)
 
     #this flag is used when props are updated by the user
     #This is so values can be pulled in from built in props
@@ -1167,7 +1169,7 @@ def nftChains(self, context):
     tup = (
             ('ICP', "Internet Computer", ""),
             ('AR', "Aweave", ""),
-            ('BTCL', "Bitcoin Lighning", ""))
+            ('BTCL', "Bitcoin Lightning", ""))
 
     result = setEnum(tup, first_enum, 'ICP')
 
@@ -1244,6 +1246,14 @@ PROPS = [
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
     ('hvym_project_name', bpy.props.StringProperty(name='Project-Name', default='NOT-SET!!!!', description ="Collection name for asset deployement.", update=onUpdate)),
     ('hvym_project_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current working project path.", update=onUpdate)),
+    ('hvym_project_type', bpy.props.EnumProperty(
+        name='Project-Type',
+        items=(
+            ('model', "Model", ""),
+            ('minter', "Minter", "")),
+        description ="Type of Project.",
+        update=onUpdate)),
+    ('hvym_daemon_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current active daemon project path.")),
     ('hvym_debug_url', bpy.props.StringProperty(name='Url', default='', description ="Current running debug url.", update=onUpdate)),
     ('hvym_daemon_running', bpy.props.BoolProperty(name="Daemon Running", description="Toggle the test daemon.", default=False)),
     ('hvym_add_version', bpy.props.BoolProperty(name='Minter-Version', description ="Enable versioning for this NFT minter.", default=False)),
@@ -1653,6 +1663,7 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
             items=(('Incremental', 'Incremental', ""),
                 ('Decremental', 'Decremental', ""),
                 ('Bicremental', 'Bicremental', ""),
+                ('Setter', 'Setter', ""),
                 ('Static', 'Static', ""),),
             update=onUpdate)
 
@@ -2855,6 +2866,8 @@ class HVYM_SetProject(bpy.types.Operator):
             call_cli(['icp-project', context.scene.hvym_project_name])
             ICP_PATH = call_cli(['icp-project-path'])
             context.scene.hvym_project_path = ICP_PATH
+            context.scene.hvym_daemon_path = os.path.join(ICP_PATH, context.scene.hvym_project_type)
+
 
         return {'FINISHED'}
 
@@ -2880,7 +2893,34 @@ class HVYM_SetConfirmDialog(bpy.types.Operator):
 class HVYM_ToggleAssetDaemon(bpy.types.Operator):
     bl_idname = "hvym_toggle_asset.daemon"
     bl_label = "Toggle the test daemon."
-    bl_description ="Enables and disables the daemon for testing."
+    bl_description ="Enables and disables the asset daemon for testing."
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        wm = bpy.context.window_manager
+        
+        if context.scene.hvym_daemon_running == True:
+            call_cli(['icp-stop-assets'])
+            context.scene.hvym_debug_url = ''
+        elif context.scene.hvym_daemon_running == False:
+            wm.progress_begin(0, 88)
+            wm.progress_update(88)
+            output = run_futures_cmds([CLI+' icp-start-assets'])
+            wm.progress_update(88)
+            wm.progress_end()
+            print(output)
+            print('------------------------------------')
+
+        context.scene.hvym_daemon_running = not context.scene.hvym_daemon_running
+
+
+        return {'FINISHED'}
+
+
+class HVYM_ToggleMinterDaemon(bpy.types.Operator):
+    bl_idname = "hvym_toggle_minter.daemon"
+    bl_label = "Toggle the test daemon."
+    bl_description ="Enables and disables the minter daemon for testing."
     bl_options = {'REGISTER'}
 
     def execute(self, context):
@@ -3498,7 +3538,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
                     row = row.row()
                     row.enabled = context.scene.add_version
                 if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
-                    if prop_name != 'hvym_mintable' and prop_name != 'hvym_daemon_running' and prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_name' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path':
+                    if prop_name != 'hvym_mintable' and prop_name != 'hvym_daemon_running' and prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_name' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path' and prop_name != 'hvym_daemon_path' and prop_name != 'hvym_project_type':
                         row.prop(context.scene, prop_name)
         row = col.row()
         box = col.box()
@@ -3507,11 +3547,15 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row = box.row()
         row.prop(context.scene, 'hvym_project_name')
         row = box.row()
+        row.prop(context.scene, 'hvym_project_type')
+        row = box.row()
         row.operator('hvym_set.project_confirm_dialog', text="Set Project", icon="CONSOLE")
         row = box.row()
         row.label(text="Internet Computer Project Path:")
         row = box.row()
         row.label(text=context.scene.hvym_project_path)
+        row = box.row()
+        row.label(text=context.scene.hvym_daemon_path)
         box = col.row()
         row = box.row()
         row.separator()
