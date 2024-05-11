@@ -94,6 +94,8 @@ ICP_PATH = 'NOT SET'
 DAEMON_RUNNING = False
 LOADING = False
 
+FILE_PATH = Path(__file__).parent
+
 if os.path.isfile(CLI):
     result = subprocess.run([CLI, 'icp-project-path'], capture_output=True, text=True, check=False)
 
@@ -101,32 +103,6 @@ if os.path.isfile(CLI):
         ICP_PATH = result.stderr
     else:
         ICP_PATH = result.stdout
-
-# Custom hooks. Defined here and registered/unregistered in register()/unregister().
-# Note: If other installed addon have custom hooks on the same way at the same places
-#       they can be conflicted. Ex: There are two addons A and B which have custom hooks.
-#       Imagine A is installed, B is installed, and then A is removed. B is still installed
-#       But removing A resets the hooks in unregister().
-
-# The glTF2 importer doesn't provide a hook mechanism for user extensions so
-# manually extend a function to import the extension
-from io_scene_gltf2.blender.imp.gltf2_blender_node import BlenderNode
-orig_create_obj = BlenderNode.create_object
-def patched_create_object(gltf, vnode_id):
-    print('patched_create_object + '+str(vnode_id))
-    obj = orig_create_obj(gltf, vnode_id)
-    length = len(gltf.data.nodes)-1
-
-    if vnode_id == 0:
-        create_collections(gltf)
-
-    assign_collections_hvym_data(obj, gltf)
-
-    print("length is: " + str(length) + " index: " + str(vnode_id))
-    if vnode_id == length:
-        cleanup_scene_collection()
-
-    return obj
 
 # -------------------------------------------------------------------
 #   Widget Elements
@@ -1096,7 +1072,7 @@ def updateNftData(context):
     ]
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
-    print(json.loads(call_cli(params)))
+    # print(json.loads(call_cli(params)))
     
 
 
@@ -1235,7 +1211,7 @@ PROPS = [
     ('hvym_nft_price', bpy.props.FloatProperty(name='NFT-Price', default=0.01, description ="Price of NFT in eth.", update=onUpdate)),
     ('hvym_mintable', bpy.props.BoolProperty(name='Mintable', description ="If true, this model is a mintable NFT.", default=True)),
     ('hvym_prem_nft_price', bpy.props.FloatProperty(name='Premium-NFT-Price', default=0.01, description ="Premium price of customized NFT in eth.", update=onUpdate)),
-    ('hvym_max_supply', bpy.props.IntProperty(name='Max-Supply', default=0, description ="Max number that can be minted, if -1 supply is infinite.", update=onUpdate)),
+    ('hvym_max_supply', bpy.props.IntProperty(name='Max-Supply', default=100, description ="Max number that can be minted, if -1 supply is infinite.", update=onUpdate)),
     ('hvym_minter_type', bpy.props.EnumProperty(
         name='Minter-Type',
         items=minterTypes,
@@ -2811,7 +2787,7 @@ class HVYM_DebugModel(bpy.types.Operator):
         cli = os.path.join(ADDON_PATH, 'heavymeta_cli')
         if context.scene.hvym_nft_chain == 'ICP':
             if context.scene.hvym_project_path is not None:
-                project_path = bpy.context.scene.hvym_project_path.rstrip()
+                project_path = bpy.context.scene.hvym_daemon_path.rstrip()
                 #export gltf to project folder
                 if os.path.exists(project_path):
                     wm = bpy.context.window_manager
@@ -3523,6 +3499,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row.label(text="", icon_value=logo.icon_id)
 
     def draw(self, context):
+        filter_props = ['hvym_mintable','hvym_daemon_running','hvym_contract_address','hvym_prem_nft_price','hvym_nft_price','hvym_export_name','hvym_export_path','hvym_project_name','hvym_project_path','hvym_daemon_path','hvym_project_type','hvym_debug_url']
         col = self.layout.column()
         box = col.row()
         row = box.row()
@@ -3538,7 +3515,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
                     row = row.row()
                     row.enabled = context.scene.add_version
                 if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
-                    if prop_name != 'hvym_mintable' and prop_name != 'hvym_daemon_running' and prop_name != 'hvym_contract_address' and prop_name != 'hvym_prem_nft_price' and prop_name != 'hvym_nft_price' and prop_name != 'hvym_export_name' and prop_name != 'hvym_export_path' and prop_name != 'hvym_project_name' and prop_name != 'hvym_project_path' and prop_name != 'hvym_daemon_path' and prop_name != 'hvym_project_type':
+                    if prop_name not in filter_props:
                         row.prop(context.scene, prop_name)
         row = col.row()
         box = col.box()
@@ -4059,7 +4036,7 @@ def register():
 
     preview_collections["main"] = pcoll
 
-    BlenderNode.create_object = patched_create_object
+    # BlenderNode.create_object = patched_create_object
 
     for (prop_name, prop_value) in PROPS:
         setattr(bpy.types.Scene, prop_name, prop_value)
@@ -4216,29 +4193,6 @@ def create_collections(gltf):
             
 
     return collections
-        
-
-def assign_collections_hvym_data(obj, gltf):
-    if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
-        return
-
-    data = gltf.data.extensions[glTF_extension_name]
-    ext_data = gltf.data.extensions[glTF_extension_name]
-    collection_dict = {}
-    linked = bpy.context.scene.hvym_collections_data.colData
-
-    #print(type(bpy.data.collections))
-    for col in bpy.data.collections.keys():
-    #for col in bpy.data.collections:
-        hvym_coll = bpy.data.collections.get(col) #.hvym_id
-        if hvym_coll.hvym_id != None:
-        #if col.hvym_id != None:
-            id = hvym_coll.hvym_id
-            mapping = ext_data[id]['nodes']
-
-        if obj.name not in linked and obj.name in mapping:
-            col.objects.link(obj)
-            linked[obj.name] = obj
 
 
 def cleanup_scene_collection():
