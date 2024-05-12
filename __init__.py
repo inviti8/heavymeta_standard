@@ -87,6 +87,7 @@ glTF_extension_name = "HVYM_nft_data"
 SCRIPT_PATH = bpy.utils.user_resource('SCRIPTS')
 ADDON_PATH = os.path.join(SCRIPT_PATH, 'addons', 'heavymeta_standard')
 CLI = os.path.join(ADDON_PATH, 'heavymeta_cli')
+CLI_INSTALLED = False
 #print(bpy.data.filepath.lower())
 #FILE_NAME = Path(bpy.data.filepath).stem
 FILE_NAME = 'NOT SET'
@@ -103,6 +104,7 @@ if os.path.isfile(CLI):
         ICP_PATH = result.stderr
     else:
         ICP_PATH = result.stdout
+        CLI_INSTALLED = True
 
 # -------------------------------------------------------------------
 #   Widget Elements
@@ -4021,9 +4023,8 @@ blender_classes = [
 
 @persistent
 def post_file_load(file_path):
-    if bpy.context.scene.hvym_project_path != ICP_PATH:
-        print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_path}")
-        ICP_PATH = bpy.context.scene.hvym_project_path
+    if CLI_INSTALLED and (bpy.context.scene.hvym_project_path == "NOT-SET!!!!" or bpy.context.scene.hvym_project_path != ICP_PATH):
+        print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_name}")
         bpy.ops.hvym_set.project()
 
 def register():
