@@ -2841,7 +2841,7 @@ class HVYM_SetProject(bpy.types.Operator):
         if context.scene.hvym_nft_chain == 'ICP':
             call_cli(['icp-project', context.scene.hvym_project_name])
             ICP_PATH = call_cli(['icp-project-path'])
-            context.scene.hvym_project_path = ICP_PATH
+            context.scene.hvym_project_path = ICP_PATH.rstrip()
             context.scene.hvym_daemon_path = os.path.join(ICP_PATH, context.scene.hvym_project_type)
 
 
@@ -3583,14 +3583,12 @@ class HVYM_NFTDataExtensionProps(bpy.types.PropertyGroup):
 # -------------------------------------------------------------------
 #   DEBUG RIGHT CLICK MENU
 # ------------------------------------------------------------------- 
-bpy.types.GLTF_PT_export_user_extensions.bl_id = 'GLTF_PT_export_user_extensions'
 class HVYMGLTF_PT_export_user_extensions(bpy.types.Panel):
     bl_id = 'HVYMGLTF_PT_export_user_extensions'
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
     bl_label = "Heavymeta Extensions"
     bl_parent_id = "FILE_PT_operator"
-    #bl_parent_id = "GLTF_PT_export_user_extensions"
 
     @classmethod
     def poll(cls, context):
@@ -4021,6 +4019,13 @@ blender_classes = [
     HVYM_AddAllMeshMaterialsToSet
     ]
 
+@persistent
+def initialize(file_path):
+    if bpy.context.scene.hvym_project_path != ICP_PATH:
+        print(f"Heavymeta CLI current project being set to: {bpy.context.scene.hvym_project_path}")
+        bpy.ops.hvym_set.project()
+        
+
 def register():
     # Note that preview collections returned by bpy.utils.previews
     # are regular py objects - you can use them to store custom data.
@@ -4070,6 +4075,8 @@ def register():
     if not hasattr(bpy.types.Object, 'hvym_id'):
         bpy.types.Object.hvym_id = bpy.props.StringProperty(default = '')
 
+    bpy.app.handlers.load_post.append(initialize)
+
 
 def unregister():
     for pcoll in preview_collections.values():
@@ -4110,96 +4117,6 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-
-# IMPORT
-def create_collections(gltf):
-    if gltf.data.extensions is None or glTF_extension_name not in gltf.data.extensions:
-        return
-
-    ext_data = gltf.data.extensions[glTF_extension_name]
-    ctx = bpy.context
-    valProps = None
-    meshProps = None
-    morphNodes = None
-    animProps = None
-    collections = {}
-
-    def set_col_data(type, prop, dct):
-        item = collection.hvym_meta_data.add()
-        item.trait_type = type
-        item.type = prop
-        #item.values = prop.values
-        #item.values = dct[prop]
-        updateNftData(bpy.context)
-
-    for id in ext_data.keys():
-        if id == 'contract':
-            bpy.context.scene.hvym_nft_price = ext_data[id]['nftPrice']
-            #bpy.context.scene.hvym_nft_type_enum = ext_data[id]['nftType']
-            bpy.context.collection.hvym_nft_type_enum = ext_data[id]['nftType']
-            #bpy.context.scene.hvym_minter_type_enum = ext_data[id]['minterType']
-            bpy.context.collection.hvym_minter_type_enum = ext_data[id]['minterType']
-            bpy.context.scene.hvym_minter_name = ext_data[id]['minterName']
-            bpy.context.scene.hvym_minter_description = ext_data[id]['minterDesc']
-            bpy.context.scene.hvym_minter_image = ext_data[id]['minterImage']
-            bpy.context.scene.hvym_minter_version = ext_data[id]['minterVersion']
-            bpy.context.scene.hvym_contract_address = ext_data[id]['contractAddress']
-
-            if bpy.context.scene.hvym_minter_version > 0:
-                bpy.context.scene.hvym_add_version = True
-
-            updateNftData(bpy.context)
-
-        else:
-            name = ext_data[id]['collection_name']
-            collection = bpy.data.collections.new(name)
-            collection.hvym_id = id
-            collection.hvym_collection_type = ext_data[id]['collectionType']
-            collections[id] = collection
-
-            if 'valProps' in ext_data[id].keys():
-                valProps = ext_data[id]['valProps']
-                item = collection.hvym_meta_data.add()
-                item.trait_type = "property"
-                for t in valProps.keys():
-                    item.int_default = valProps[t]["default"]
-                    item.int_min = valProps[t]["min"]
-                    item.int_min = valProps[t]["min"]
-                    item.prop_slider_type = valProps[t]["prop_slider_type"]
-                    item.prop_action_type = valProps[t]["prop_action_type"]
-                    #set_col_data('property', t, valProps)
-                updateNftData(bpy.context)
-                
-            if 'meshProps' in ext_data[id].keys():
-                meshProps = ext_data[id]['meshProps']
-                for t in meshProps:
-                    set_col_data('mesh', t, meshProps)
-
-            if 'morphSets' in ext_data[id].keys():
-                morphSets = ext_data[id]['morphSets']
-                for t in morphSets:
-                    set_col_data('morph', t, morphSets)
-
-            if 'animProps' in ext_data[id].keys():
-                animProps = ext_data[id]['animProps']
-                for t in animProps:
-                    set_col_data('anim', t, animProps)
-
-            
-            bpy.context.scene.collection.children.link(collection)
-
-            updateNftData(bpy.context)
-
-            
-
-    return collections
-
-
-def cleanup_scene_collection():
-    linked = bpy.context.scene.hvym_collections_data.colData
-    for ob in bpy.context.scene.collection.objects:
-        if ob.name in linked.keys():
-            bpy.context.scene.collection.objects.unlink(ob)
 
 #EXPORT
 # Use glTF-Blender-IO User extension hook mechanism
