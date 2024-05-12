@@ -4020,11 +4020,11 @@ blender_classes = [
     ]
 
 @persistent
-def initialize(file_path):
+def post_file_load(file_path):
     if bpy.context.scene.hvym_project_path != ICP_PATH:
-        print(f"Heavymeta CLI current project being set to: {bpy.context.scene.hvym_project_path}")
+        print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_path}")
+        ICP_PATH = bpy.context.scene.hvym_project_path
         bpy.ops.hvym_set.project()
-        
 
 def register():
     # Note that preview collections returned by bpy.utils.previews
@@ -4075,7 +4075,7 @@ def register():
     if not hasattr(bpy.types.Object, 'hvym_id'):
         bpy.types.Object.hvym_id = bpy.props.StringProperty(default = '')
 
-    bpy.app.handlers.load_post.append(initialize)
+    bpy.app.handlers.load_post.append(post_file_load)
 
 
 def unregister():
