@@ -709,6 +709,7 @@ def call_cli(call_arr):
             result = call.stderr
         else:
             result = call.stdout
+            print(result)
 
     return result
 
@@ -1081,7 +1082,10 @@ def updateNftData(context):
 def onUpdate(self, context):
     RebuildMaterialSets(context)
     updateNftData(context)
-    context.scene.hvym_daemon_path = os.path.join(context.scene.hvym_project_path.rstrip(), context.scene.hvym_project_type)
+    if context.scene.hvym_project_type == 'model':
+        context.scene.hvym_daemon_path = call_cli(['icp-model-path'])
+    elif context.scene.hvym_project_type == 'minter':
+        context.scene.hvym_daemon_path = call_cli(['icp-minter-path'])
 
     #this flag is used when props are updated by the user
     #This is so values can be pulled in from built in props
@@ -2770,8 +2774,36 @@ class HVYM_DebugMinter(bpy.types.Operator):
 
     def execute(self, context):
         print("Debug Minter")
-        for data in context.collection.hvym_meta_data:
-            print(data.type)
+        file_path = bpy.data.filepath
+        file_name = bpy.context.scene.hvym_export_name
+
+        if context.scene.hvym_nft_chain == 'ICP':
+            print('gets here 1')
+            if context.scene.hvym_project_path is not None:
+                print('gets here 2!')
+                project_path = bpy.context.scene.hvym_daemon_path.rstrip()
+                print('project_path')
+                print(project_path)
+                #export gltf to project folder
+                if os.path.exists(project_path):
+                    print('should export!')
+                    # wm = bpy.context.window_manager
+                    # wm.progress_begin(0, 88)
+                    # wm.progress_update(88)
+                    model_dir = call_cli(['icp-minter-model-path']).rstrip()
+                    out_file = os.path.join(model_dir, file_name)
+                    #Clear old file
+                    for filename in os.listdir(model_dir):
+                        file_path = os.path.join(model_dir, filename)
+                        if os.path.isfile(file_path) and '.glb' in file_path:
+                            os.unlink(file_path)
+
+                    bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
+                    run_command(CLI+' icp-debug-model-minter '+file_name+'.glb')
+                    project_type = context.scene.hvym_project_type
+                    urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+
+
         return {'FINISHED'}
 
 
@@ -2797,7 +2829,7 @@ class HVYM_DebugModel(bpy.types.Operator):
                     wm.progress_update(88)
                     src_dir = os.path.join(project_path, 'Assets', 'src')
                     out_file = os.path.join(src_dir, file_name)
-
+                    #Clear old file
                     for filename in os.listdir(src_dir):
                         file_path = os.path.join(src_dir, filename)
                         if os.path.isfile(file_path) and '.glb' in file_path:
@@ -2805,7 +2837,8 @@ class HVYM_DebugModel(bpy.types.Operator):
 
                     bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
                     run_command(CLI+' icp-debug-model '+file_name+'.glb')
-                    urls = run_command(CLI+' icp-deploy-assets')
+                    project_type = context.scene.hvym_project_type
+                    urls = run_command(CLI+f' icp-deploy-assets {project_type}')
                     wm.progress_end()
                     context.scene.hvym_debug_url = ast.literal_eval(urls)[0]
 
@@ -2844,7 +2877,13 @@ class HVYM_SetProject(bpy.types.Operator):
             call_cli(['icp-project', context.scene.hvym_project_name])
             ICP_PATH = call_cli(['icp-project-path'])
             context.scene.hvym_project_path = ICP_PATH.rstrip()
-            context.scene.hvym_daemon_path = os.path.join(ICP_PATH, context.scene.hvym_project_type)
+            if context.scene.hvym_project_type == 'model':
+                context.scene.hvym_daemon_path = call_cli(['icp-model-path'])
+            elif context.scene.hvym_project_type == 'minter':
+                context.scene.hvym_daemon_path = call_cli(['icp-minter-path'])
+            else:
+                context.scene.hvym_daemon_path = os.path.join(ICP_PATH, context.scene.hvym_project_type)
+            call_cli(['icp-init', '-f'])
 
 
         return {'FINISHED'}
@@ -2883,7 +2922,8 @@ class HVYM_ToggleAssetDaemon(bpy.types.Operator):
         elif context.scene.hvym_daemon_running == False:
             wm.progress_begin(0, 88)
             wm.progress_update(88)
-            output = run_futures_cmds([CLI+' icp-start-assets'])
+            project_type = context.scene.hvym_project_type
+            output = run_futures_cmds([CLI+f' icp-start-assets {project_type}'])
             wm.progress_update(88)
             wm.progress_end()
             print(output)
@@ -3547,8 +3587,10 @@ class HVYM_ScenePanel(bpy.types.Panel):
         elif context.scene.hvym_daemon_running == True:
             row.operator('hvym_toggle_asset.daemon', text="Daemon On", icon="COLORSET_03_VEC")
             row = box.row()
-            row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
-            row.operator('hvym_debug.model_confirm_dialog', text="Debug Model", icon="CONSOLE")
+            if context.scene.hvym_project_type == 'minter':
+                row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
+            elif context.scene.hvym_project_type == 'model':
+                row.operator('hvym_debug.model_confirm_dialog', text="Debug Model", icon="CONSOLE")
         row = box.row()
         if context.scene.hvym_debug_url != '':
             row.prop(context.scene, 'hvym_debug_url')
@@ -4023,9 +4065,10 @@ blender_classes = [
 
 @persistent
 def post_file_load(file_path):
-    if CLI_INSTALLED and (bpy.context.scene.hvym_project_path == "NOT-SET!!!!" or bpy.context.scene.hvym_project_path != ICP_PATH):
+    if CLI_INSTALLED and (bpy.context.scene.hvym_project_path != "NOT-SET!!!!" or bpy.context.scene.hvym_project_path != ICP_PATH):
         print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_name}")
         bpy.ops.hvym_set.project()
+
 
 def register():
     # Note that preview collections returned by bpy.utils.previews
