@@ -1,6 +1,6 @@
 """
 [Blender and Python] Heavymeta Standard 
-Meta-Cronos - August 2022
+Fibo Metavinci - August 2022
 Email: comicronos@gmail.com
 Addon to add standardized meta-data to the scene at the API level.  Standard
 Heavmeta Data are offered as a proposed framework that is based on standards
@@ -709,7 +709,7 @@ def call_cli(call_arr):
             result = call.stderr
         else:
             result = call.stdout
-            print(result)
+            # print(result)
 
     return result
 
@@ -2787,9 +2787,9 @@ class HVYM_DebugMinter(bpy.types.Operator):
                 #export gltf to project folder
                 if os.path.exists(project_path):
                     print('should export!')
-                    # wm = bpy.context.window_manager
-                    # wm.progress_begin(0, 88)
-                    # wm.progress_update(88)
+                    wm = bpy.context.window_manager
+                    wm.progress_begin(0, 88)
+                    wm.progress_update(88)
                     model_dir = call_cli(['icp-minter-model-path']).rstrip()
                     out_file = os.path.join(model_dir, file_name)
                     #Clear old file
@@ -2802,6 +2802,8 @@ class HVYM_DebugMinter(bpy.types.Operator):
                     run_command(CLI+' icp-debug-model-minter '+file_name+'.glb')
                     project_type = context.scene.hvym_project_type
                     urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+                    context.scene.hvym_debug_url = ast.literal_eval(urls)[3]
+                    wm.progress_end()
 
 
         return {'FINISHED'}
@@ -4065,7 +4067,10 @@ blender_classes = [
 
 @persistent
 def post_file_load(file_path):
-    if CLI_INSTALLED and (bpy.context.scene.hvym_project_path != "NOT-SET!!!!" or bpy.context.scene.hvym_project_path != ICP_PATH):
+    if bpy.context.scene.hvym_project_name == 'NOT-SET!!!!':
+        return
+
+    if CLI_INSTALLED and ( bpy.context.scene.hvym_project_path != "NOT-SET!!!!" or bpy.context.scene.hvym_project_path != ICP_PATH):
         print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_name}")
         bpy.ops.hvym_set.project()
 
