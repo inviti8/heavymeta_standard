@@ -80,13 +80,16 @@ import webbrowser
 import ast
 import json
 
+HOME = os.path.expanduser("~").replace('\\', '/') if os.name == 'nt' else os.path.expanduser("~")
+
 preview_collections = {}
 
 glTF_extension_name = "HVYM_nft_data"
 
 SCRIPT_PATH = bpy.utils.user_resource('SCRIPTS')
 ADDON_PATH = os.path.join(SCRIPT_PATH, 'addons', 'heavymeta_standard')
-CLI = os.path.join(ADDON_PATH, 'heavymeta_cli')
+#CLI = os.path.join(ADDON_PATH, 'hvym')
+CLI = os.path.join(HOME, '.local', 'share', 'heavymeta-cli', 'hvym')
 CLI_INSTALLED = False
 #print(bpy.data.filepath.lower())
 #FILE_NAME = Path(bpy.data.filepath).stem
