@@ -1255,6 +1255,27 @@ COL_PROPS = [
         update=onUpdate))
 ]
 
+MESH_PROPS = [
+    ('hvym_mesh_interaction_type', bpy.props.EnumProperty(
+        name='Interaction-Type',
+        items=(
+            ('none', "None", ""),
+            ('button', "Button", ""),
+            ('toggle', "Toggle", ""),
+            ('slider', "Slider", "")),
+        description ="Type of Project.",
+        update=onUpdate)),
+    ('hvym_mesh_interaction_name', bpy.props.StringProperty(name='Name', default='', description ="Name of interaction.", update=onUpdate)),
+    ('hvym_mesh_interaction_call', bpy.props.StringProperty(name='Call', default='', description ="Name of call.", update=onUpdate)),
+    ('hvym_mesh_interaction_call_param',bpy.props.EnumProperty(
+            name='Call Parameter',
+            description ="Set accepted parameter type for method call.",
+            items=(('NONE', 'None', ""),
+                ('STRING', 'String', ""),
+                ('INT', 'Int', ""),),
+            update=onUpdate))
+]
+
 
 class HVYM_MenuDataItem(bpy.types.PropertyGroup):
     """Group of properties representing per collection menu meta data."""
@@ -3617,6 +3638,41 @@ class HVYM_ScenePanel(bpy.types.Panel):
             # row.operator('hvym_deploy.confirm_nft_deploy_dialog', text="Deploy NFT", icon="URL")
         
 
+class HVYM_MeshPanel(bpy.types.Panel):
+    """Creates a Panel in the Object properties window"""
+    bl_label = "Heavymeta Standard Data"
+    bl_idname = "OBJECT_PT_heavymeta_standard_mesh_data"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "object"
+
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object!= None and bpy.type == 'MESH')
+
+    def draw_header(self, context):
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        pcoll = preview_collections["main"]
+        logo = pcoll["logo"]
+        row.label(text="", icon_value=logo.icon_id)
+
+    def draw(self, context):
+        col = self.layout.column()
+        box = col.row()
+        row = box.row()
+        ctx = context.object
+        row.prop(ctx, 'hvym_mesh_interaction_type')
+        if ctx.hvym_mesh_interaction_type != 'none':
+            box = col.box()
+            row = box.row()
+            row.prop(ctx, 'hvym_mesh_interaction_name')
+            row = box.row()
+            row.label(text="", icon='SETTINGS')
+            row.prop(ctx, 'hvym_mesh_interaction_call')
+            row = box.row()
+            row.prop(ctx, 'hvym_mesh_interaction_call_param')
 
 
 # -------------------------------------------------------------------
@@ -4056,6 +4112,7 @@ blender_classes = [
     HVYM_NLA_DataPanel,
     HVYM_DataPanel,
     HVYM_ScenePanel,
+    HVYM_MeshPanel,
     HVYM_NFTDataExtensionProps,
     HVYMGLTF_PT_export_user_extensions,
     TestOp,
@@ -4100,6 +4157,9 @@ def register():
 
     for (prop_name, prop_value) in COL_PROPS:
         setattr(bpy.types.Collection, prop_name, prop_value)
+
+    for (prop_name, prop_value) in MESH_PROPS:
+        setattr(bpy.types.Object, prop_name, prop_value)
 
     for blender_class in blender_classes:
         bpy.utils.register_class(blender_class)
@@ -4163,6 +4223,9 @@ def unregister():
 
     for (prop_name, _) in COL_PROPS:
         delattr(bpy.types.Collection, prop_name)
+
+    for (prop_name, _) in MESH_PROPS:
+        delattr(bpy.types.Object, prop_name)
 
     for blender_class in blender_classes:
         bpy.utils.unregister_class(blender_class)
