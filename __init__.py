@@ -1078,8 +1078,14 @@ def updateNftData(context):
     ]
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
+
+    params = [
+        'parse-blender-hvym-interactables', 
+        property_group_to_json(bpy.context.scene.objects)
+    ]
+
+    context.scene.hvym_collections_data.nftData['interactables'] = json.loads(call_cli(params))
     # print(json.loads(call_cli(params)))
-    
 
 
 def onUpdate(self, context):
@@ -3648,7 +3654,7 @@ class HVYM_MeshPanel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return (context.active_object!= None and bpy.type == 'MESH')
+        return (context.active_object != None and context.active_object.type == 'MESH')
 
     def draw_header(self, context):
         col = self.layout.column()
