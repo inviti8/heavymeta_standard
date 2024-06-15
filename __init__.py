@@ -1262,6 +1262,11 @@ COL_PROPS = [
 ]
 
 MESH_PROPS = [
+    ('hvym_interactable', bpy.props.BoolProperty(
+           name="Interactable",
+           description="If true, this mesh will be interactable.",
+           default=False,
+           update=onUpdate)),
     ('hvym_mesh_interaction_type', bpy.props.EnumProperty(
         name='Interaction-Type',
         items=(
@@ -1269,17 +1274,41 @@ MESH_PROPS = [
             ('button', "Button", ""),
             ('toggle', "Toggle", ""),
             ('slider', "Slider", "")),
-        description ="Type of Project.",
+        description ="Type of interaction.",
         update=onUpdate)),
     ('hvym_mesh_interaction_name', bpy.props.StringProperty(name='Name', default='', description ="Name of interaction.", update=onUpdate)),
     ('hvym_mesh_interaction_call', bpy.props.StringProperty(name='Call', default='', description ="Name of call.", update=onUpdate)),
-    ('hvym_mesh_interaction_call_param',bpy.props.EnumProperty(
+    ('hvym_mesh_interaction_param_type',bpy.props.EnumProperty(
             name='Call Parameter',
             description ="Set accepted parameter type for method call.",
             items=(('NONE', 'None', ""),
                 ('STRING', 'String', ""),
-                ('INT', 'Int', ""),),
-            update=onUpdate))
+                ('INT', 'Int', ""),
+                ('FLOAT', 'Float', ""),),
+            update=onUpdate)),
+    ('hvym_mesh_interaction_slider_param_type',bpy.props.EnumProperty(
+            name='Call Parameter',
+            description ="Set accepted slider parameter type for method call.",
+            items=(('INT', 'Int', ""),
+                ('FLOAT', 'Float', ""),),
+            update=onUpdate)),
+    ('hvym_mesh_interaction_toggle_param_type',bpy.props.EnumProperty(
+            name='Call Parameter',
+            description ="Set accepted toggle parameter type for method call.",
+            items=(('INT', 'Int', ""),
+                ('BOOL', 'Bool', ""),),
+            update=onUpdate)),
+    ('hvym_mesh_interaction_string_param', bpy.props.StringProperty(name='Param', default='', description ="String parameter for call.", update=onUpdate)),
+    ('hvym_mesh_interaction_int_param', bpy.props.IntProperty(name='Param', default=0, description ="Int parameter for call.", update=onUpdate)),
+    ('hvym_mesh_interaction_float_param', bpy.props.FloatProperty(name='Param', default=0, description ="Int parameter for call.", update=onUpdate)),
+    ('hvym_mesh_interaction_float_default', bpy.props.FloatProperty(name="Default", description="Add default value.", default=0, update=onUpdate)),
+    ('hvym_mesh_interaction_float_min', bpy.props.FloatProperty(name="Min", description="Add minimum value.", default=0, update=onUpdate)),
+    ('hvym_mesh_interaction_float_max', bpy.props.FloatProperty(name="Max", description="Add maximum value.", default=0, update=onUpdate)),
+    ('hvym_mesh_interaction_int_default', bpy.props.IntProperty(name="Default", description="Add default value.", default=0, update=onUpdate)),
+    ('hvym_mesh_interaction_int_min', bpy.props.IntProperty(name="Min", description="Add minimum value.", default=0, update=onUpdate)),
+    ('hvym_mesh_interaction_int_max', bpy.props.IntProperty(name="Max", description="Add maximum value.", default=0, update=onUpdate)),
+    ('hvym_mesh_interaction_toggle_state', bpy.props.BoolProperty(name="On", description="Default state of Toggle.", default=False, update=onUpdate)),
+    ('hvym_mesh_interaction_toggle_int', bpy.props.IntProperty(name="On", description="Add default value.", default=0, update=onUpdate))
 ]
 
 
@@ -3665,20 +3694,59 @@ class HVYM_MeshPanel(bpy.types.Panel):
         row.label(text="", icon_value=logo.icon_id)
 
     def draw(self, context):
+
         col = self.layout.column()
         box = col.row()
         row = box.row()
         ctx = context.object
-        row.prop(ctx, 'hvym_mesh_interaction_type')
-        if ctx.hvym_mesh_interaction_type != 'none':
+        row.prop(ctx, 'hvym_interactable')
+        if ctx.hvym_interactable:
             box = col.box()
             row = box.row()
-            row.prop(ctx, 'hvym_mesh_interaction_name')
-            row = box.row()
-            row.label(text="", icon='SETTINGS')
-            row.prop(ctx, 'hvym_mesh_interaction_call')
-            row = box.row()
-            row.prop(ctx, 'hvym_mesh_interaction_call_param')
+            row.prop(ctx, 'hvym_mesh_interaction_type')
+            if ctx.hvym_mesh_interaction_type != 'none':
+                box = col.box()
+                row = box.row()
+                row.prop(ctx, 'hvym_mesh_interaction_name')
+                row = box.row()
+                row.label(text="", icon='SETTINGS')
+                row.prop(ctx, 'hvym_mesh_interaction_call')
+                row = box.row()
+                # row.prop(ctx, 'hvym_mesh_interaction_param_type')
+                # row = box.row()
+                if ctx.hvym_mesh_interaction_type == 'slider':
+                    row.prop(ctx, 'hvym_mesh_interaction_slider_param_type')
+                    row = box.row()
+                    box = col.box()
+                    row = box.row()
+                    if ctx.hvym_mesh_interaction_slider_param_type == 'INT':
+                        row.prop(ctx, 'hvym_mesh_interaction_int_default')
+                        row.prop(ctx, 'hvym_mesh_interaction_int_min')
+                        row.prop(ctx, 'hvym_mesh_interaction_int_max')
+                    else:
+                        row.prop(ctx, 'hvym_mesh_interaction_float_default')
+                        row.prop(ctx, 'hvym_mesh_interaction_float_min')
+                        row.prop(ctx, 'hvym_mesh_interaction_float_max')
+                elif ctx.hvym_mesh_interaction_type == 'toggle':
+                    row.prop(ctx, 'hvym_mesh_interaction_toggle_param_type')
+                    row = box.row()
+                    box = col.box()
+                    row = box.row()
+                    if ctx.hvym_mesh_interaction_toggle_param_type == 'BOOL':
+                        row.prop(ctx, 'hvym_mesh_interaction_toggle_state')
+                    else:
+                        row.prop(ctx, 'hvym_mesh_interaction_toggle_int')
+                else:
+                    row.prop(ctx, 'hvym_mesh_interaction_param_type')
+                    if ctx.hvym_mesh_interaction_param_type != 'none':
+                        row = box.row()
+                        if ctx.hvym_mesh_interaction_param_type == 'STRING':
+                            row.prop(ctx, 'hvym_mesh_interaction_string_param')
+                        elif ctx.hvym_mesh_interaction_param_type == 'FLOAT':
+                            row.prop(ctx, 'hvym_mesh_interaction_float_param')
+                        elif ctx.hvym_mesh_interaction_param_type == 'INT':
+                            row.prop(ctx, 'hvym_mesh_interaction_int_param')
+
 
 
 # -------------------------------------------------------------------
