@@ -36,7 +36,7 @@ bl_info = {
     'category': 'Collections',
     # optional
     'version': (0, 0, 0),
-    'author': 'Meta-Cronos',
+    'author': 'Fibo Metavinci',
     'description': 'Assign Heavymeta Standard properties and meta-data at the Collection level.',
 }
 
@@ -958,6 +958,13 @@ def property_group_to_dict(pg):
             if hasattr( pg[i], attr ):
                 value = getattr(pg[i], attr)
 
+                if(attr == 'children'):
+                    arr = []
+                    for obj in value:
+                        arr.append({'name': obj.name, 'type': obj.type})
+
+                    value = arr
+
                 if(attr == 'model_ref'):
                     if value != None:
                         value = {'name': value.name}
@@ -1086,6 +1093,7 @@ def updateNftData(context):
 
     context.scene.hvym_collections_data.nftData['interactables'] = json.loads(call_cli(params))
     # print(json.loads(call_cli(params)))
+    # print(property_group_to_json(bpy.context.scene.objects))
 
 
 def onUpdate(self, context):
@@ -1273,7 +1281,8 @@ MESH_PROPS = [
             ('none', "None", ""),
             ('button', "Button", ""),
             ('toggle', "Toggle", ""),
-            ('slider', "Slider", "")),
+            ('slider', "Slider", ""),
+            ('dropdown', "Dropdown", "")),
         description ="Type of interaction.",
         update=onUpdate)),
     ('hvym_mesh_interaction_name', bpy.props.StringProperty(name='Name', default='', description ="Name of interaction.", update=onUpdate)),
@@ -3712,10 +3721,8 @@ class HVYM_MeshPanel(bpy.types.Panel):
                 row.label(text="", icon='SETTINGS')
                 row.prop(ctx, 'hvym_mesh_interaction_call')
                 row = box.row()
-                # row.prop(ctx, 'hvym_mesh_interaction_param_type')
-                # row = box.row()
                 if ctx.hvym_mesh_interaction_type == 'slider':
-                    row.prop(ctx, 'hvym_mesh_interaction_slider_param_type')
+                    #row.prop(ctx, 'hvym_mesh_interaction_slider_param_type')
                     row = box.row()
                     box = col.box()
                     row = box.row()
@@ -3728,14 +3735,17 @@ class HVYM_MeshPanel(bpy.types.Panel):
                         row.prop(ctx, 'hvym_mesh_interaction_float_min')
                         row.prop(ctx, 'hvym_mesh_interaction_float_max')
                 elif ctx.hvym_mesh_interaction_type == 'toggle':
-                    row.prop(ctx, 'hvym_mesh_interaction_toggle_param_type')
+                    #row.prop(ctx, 'hvym_mesh_interaction_toggle_param_type')
                     row = box.row()
                     box = col.box()
                     row = box.row()
+                    row.label(text="Default Toggle State")
                     if ctx.hvym_mesh_interaction_toggle_param_type == 'BOOL':
                         row.prop(ctx, 'hvym_mesh_interaction_toggle_state')
                     else:
                         row.prop(ctx, 'hvym_mesh_interaction_toggle_int')
+                elif ctx.hvym_mesh_interaction_type == 'dropdown':
+                    row = box.row()
                 else:
                     row.prop(ctx, 'hvym_mesh_interaction_param_type')
                     if ctx.hvym_mesh_interaction_param_type != 'none':
