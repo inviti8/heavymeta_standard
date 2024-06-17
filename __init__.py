@@ -1282,7 +1282,7 @@ MESH_PROPS = [
             ('button', "Button", ""),
             ('toggle', "Toggle", ""),
             ('slider', "Slider", ""),
-            ('dropdown', "Dropdown", "")),
+            ('selector', "Selector", "")),
         description ="Type of interaction.",
         update=onUpdate)),
     ('hvym_mesh_interaction_name', bpy.props.StringProperty(name='Name', default='', description ="Name of interaction.", update=onUpdate)),
@@ -3744,7 +3744,7 @@ class HVYM_MeshPanel(bpy.types.Panel):
                         row.prop(ctx, 'hvym_mesh_interaction_toggle_state')
                     else:
                         row.prop(ctx, 'hvym_mesh_interaction_toggle_int')
-                elif ctx.hvym_mesh_interaction_type == 'dropdown':
+                elif ctx.hvym_mesh_interaction_type == 'selector':
                     row = box.row()
                 else:
                     row.prop(ctx, 'hvym_mesh_interaction_param_type')
