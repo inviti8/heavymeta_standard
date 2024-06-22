@@ -1103,6 +1103,9 @@ def onUpdate(self, context):
         context.scene.hvym_daemon_path = call_cli(['icp-model-path'])
     elif context.scene.hvym_project_type == 'minter':
         context.scene.hvym_daemon_path = call_cli(['icp-minter-path'])
+        context.scene.hvym_mintable = True
+    elif context.scene.hvym_project_type=='custom':
+        context.scene.hvym_mintable = False
 
     #this flag is used when props are updated by the user
     #This is so values can be pulled in from built in props
@@ -1167,8 +1170,7 @@ def nftChains(self, context):
 
     tup = (
             ('ICP', "Internet Computer", ""),
-            ('AR', "Aweave", ""),
-            ('BTCL', "Bitcoin Lightning", ""))
+            ('NONE', "None", ""))
 
     result = setEnum(tup, first_enum, 'ICP')
 
@@ -1249,9 +1251,11 @@ PROPS = [
         name='Project-Type',
         items=(
             ('model', "Model", ""),
-            ('minter', "Minter", "")),
+            ('minter', "Minter", ""),
+            ('custom', "Custom", "")),
         description ="Type of Project.",
         update=onUpdate)),
+    ('hvym_custom_backend_path', bpy.props.StringProperty(name='Custom-Backend-Path', subtype='DIR_PATH', default='', description ="Custom backend to be used.", update=onUpdate)),
     ('hvym_daemon_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current active daemon project path.")),
     ('hvym_debug_url', bpy.props.StringProperty(name='Url', default='', description ="Current running debug url.", update=onUpdate)),
     ('hvym_daemon_running', bpy.props.BoolProperty(name="Daemon Running", description="Toggle the test daemon.", default=False)),
@@ -2953,7 +2957,7 @@ class HVYM_SetProject(bpy.types.Operator):
                 context.scene.hvym_daemon_path = call_cli(['icp-minter-path'])
             else:
                 context.scene.hvym_daemon_path = os.path.join(ICP_PATH, context.scene.hvym_project_type)
-            call_cli(['icp-init', '-f'])
+            call_cli(['icp-init', context.scene.hvym_project_type, '-f'])
 
 
         return {'FINISHED'}
@@ -3611,7 +3615,19 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row.label(text="", icon_value=logo.icon_id)
 
     def draw(self, context):
-        filter_props = ['hvym_mintable','hvym_daemon_running','hvym_contract_address','hvym_prem_nft_price','hvym_nft_price','hvym_export_name','hvym_export_path','hvym_project_name','hvym_project_path','hvym_daemon_path','hvym_project_type','hvym_debug_url']
+        filter_props = ['hvym_mintable',
+        'hvym_daemon_running',
+        'hvym_contract_address',
+        'hvym_prem_nft_price',
+        'hvym_nft_price',
+        'hvym_export_name',
+        'hvym_export_path',
+        'hvym_custom_backend_path',
+        'hvym_project_name',
+        'hvym_project_path',
+        'hvym_daemon_path',
+        'hvym_project_type',
+        'hvym_debug_url']
         col = self.layout.column()
         box = col.row()
         row = box.row()
@@ -3637,6 +3653,10 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row.prop(context.scene, 'hvym_project_name')
         row = box.row()
         row.prop(context.scene, 'hvym_project_type')
+        row = box.row()
+        if context.scene.hvym_project_type=='custom':
+            row = box.row()
+            row.prop(context.scene, 'hvym_custom_backend_path')
         row = box.row()
         row.operator('hvym_set.project_confirm_dialog', text="Set Project", icon="CONSOLE")
         row = box.row()
