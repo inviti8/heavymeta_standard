@@ -49,6 +49,7 @@ import re
 import random
 import math
 import os
+import shutil
 import subprocess
 import threading
 from subprocess import run, Popen, PIPE
@@ -1095,6 +1096,8 @@ def updateNftData(context):
     # print(json.loads(call_cli(params)))
     # print(property_group_to_json(bpy.context.scene.objects))
 
+    context.scene.hvym_collections_data.nftData['project'] = {'name':context.scene.hvym_project_name, 'type':context.scene.hvym_project_type}
+
 
 def onUpdate(self, context):
     RebuildMaterialSets(context)
@@ -1105,6 +1108,7 @@ def onUpdate(self, context):
         context.scene.hvym_daemon_path = call_cli(['icp-minter-path'])
         context.scene.hvym_mintable = True
     elif context.scene.hvym_project_type=='custom':
+        context.scene.hvym_daemon_path = call_cli(['icp-custom-client-path'])
         context.scene.hvym_mintable = False
 
     #this flag is used when props are updated by the user
@@ -2892,7 +2896,6 @@ class HVYM_DebugModel(bpy.types.Operator):
         file_path = bpy.data.filepath
         file_name = bpy.context.scene.hvym_export_name
 
-        cli = os.path.join(ADDON_PATH, 'heavymeta_cli')
         if context.scene.hvym_nft_chain == 'ICP':
             if context.scene.hvym_project_path is not None:
                 project_path = bpy.context.scene.hvym_daemon_path.rstrip()
@@ -2932,6 +2935,64 @@ class HVYM_DebugModelConfirmDialog(bpy.types.Operator):
     def execute(self, context):
         self.report({'INFO'}, "YES")
         bpy.ops.hvym_debug.model()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
+
+
+class HVYM_DebugCustomClient(bpy.types.Operator):
+    bl_idname = "hvym_debug.custom_client"
+    bl_label = "Launch Custom Client UI"
+    bl_description ="Launch custom client UI debug."
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        print("Debug Model")
+        file_path = bpy.data.filepath
+        file_name = bpy.context.scene.hvym_export_name
+
+        if context.scene.hvym_nft_chain == 'ICP':
+            if context.scene.hvym_project_path is not None:
+                project_path = bpy.context.scene.hvym_daemon_path.rstrip()
+                backend_path = bpy.context.scene.hvym_custom_backend_path.rstrip()
+                #export gltf to project folder
+                if os.path.exists(project_path) and os.path.exists(backend_path):
+                    wm = bpy.context.window_manager
+                    wm.progress_begin(0, 88)
+                    wm.progress_update(88)
+                    src_dir = os.path.join(project_path, 'src', 'frontend')
+                    back_src_dir = os.path.join(project_path, 'src', 'backend')
+                    out_file = os.path.join(src_dir, file_name)
+                    #Clear old glb file
+                    for filename in os.listdir(src_dir):
+                        file_path = os.path.join(src_dir, filename)
+                        if os.path.isfile(file_path) and '.glb' in file_path:
+                            os.unlink(file_path)
+
+                    bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
+                    run_command(CLI+' icp-debug-custom-client '+file_name+'.glb '+backend_path)
+                    project_type = context.scene.hvym_project_type
+                    urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+                    wm.progress_end()
+                    context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
+
+        return {'FINISHED'}
+
+
+class HVYM_DebugCustomClientConfirmDialog(bpy.types.Operator):
+    """Deploys debug model Editor."""
+    bl_idname = "hvym_debug.custom_client_confirm_dialog"
+    bl_label = "Deploy debug custom client?"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        self.report({'INFO'}, "YES")
+        bpy.ops.hvym_debug.custom_client()
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -3681,6 +3742,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
                 row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
             elif context.scene.hvym_project_type == 'model':
                 row.operator('hvym_debug.model_confirm_dialog', text="Debug Model", icon="CONSOLE")
+            elif context.scene.hvym_project_type == 'custom':
+                row.operator('hvym_debug.custom_client_confirm_dialog', text="Debug Custom Client", icon="CONSOLE")
         row = box.row()
         if context.scene.hvym_debug_url != '':
             row.prop(context.scene, 'hvym_debug_url')
@@ -4202,6 +4265,8 @@ blender_classes = [
     HVYM_DebugMinter,
     HVYM_DebugModel,
     HVYM_DebugModelConfirmDialog,
+    HVYM_DebugCustomClient,
+    HVYM_DebugCustomClientConfirmDialog,
     HVYM_SetProject,
     HVYM_SetConfirmDialog,
     HVYM_ToggleAssetDaemon,
