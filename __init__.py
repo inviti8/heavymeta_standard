@@ -2961,7 +2961,7 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
                     wm = bpy.context.window_manager
                     wm.progress_begin(0, 88)
                     wm.progress_update(88)
-                    src_dir = os.path.join(project_path, 'src', 'frontend')
+                    src_dir = os.path.join(project_path, 'src', 'frontend', 'assets')
                     back_src_dir = os.path.join(project_path, 'src', 'backend')
                     out_file = os.path.join(src_dir, file_name)
                     #Clear old glb file
