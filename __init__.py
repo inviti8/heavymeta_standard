@@ -2904,7 +2904,7 @@ class HVYM_DebugModel(bpy.types.Operator):
                     wm = bpy.context.window_manager
                     wm.progress_begin(0, 88)
                     wm.progress_update(88)
-                    src_dir = os.path.join(project_path, 'Assets', 'src')
+                    src_dir = os.path.join(project_path, 'src', 'frontend', 'assets')
                     out_file = os.path.join(src_dir, file_name)
                     #Clear old file
                     for filename in os.listdir(src_dir):
@@ -2917,7 +2917,7 @@ class HVYM_DebugModel(bpy.types.Operator):
                     project_type = context.scene.hvym_project_type
                     urls = run_command(CLI+f' icp-deploy-assets {project_type}')
                     wm.progress_end()
-                    context.scene.hvym_debug_url = ast.literal_eval(urls)[0]
+                    context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
 
         return {'FINISHED'}
 
@@ -2948,7 +2948,7 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-        print("Debug Model")
+        print("Debug Custom Client")
         file_path = bpy.data.filepath
         file_name = bpy.context.scene.hvym_export_name
 
@@ -2969,6 +2969,8 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
                         file_path = os.path.join(src_dir, filename)
                         if os.path.isfile(file_path) and '.glb' in file_path:
                             os.unlink(file_path)
+
+                    print(out_file)
 
                     bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
                     run_command(CLI+' icp-debug-custom-client '+file_name+'.glb '+backend_path)
@@ -3016,8 +3018,11 @@ class HVYM_SetProject(bpy.types.Operator):
                 context.scene.hvym_daemon_path = call_cli(['icp-model-path'])
             elif context.scene.hvym_project_type == 'minter':
                 context.scene.hvym_daemon_path = call_cli(['icp-minter-path'])
+            elif context.scene.hvym_project_type == 'custom':
+                context.scene.hvym_daemon_path = call_cli(['icp-custom-client-path'])
             else:
                 context.scene.hvym_daemon_path = os.path.join(ICP_PATH, context.scene.hvym_project_type)
+
             call_cli(['icp-init', context.scene.hvym_project_type, '-f'])
 
 
@@ -3050,14 +3055,14 @@ class HVYM_ToggleAssetDaemon(bpy.types.Operator):
 
     def execute(self, context):
         wm = bpy.context.window_manager
+        project_type = context.scene.hvym_project_type
         
         if context.scene.hvym_daemon_running == True:
-            call_cli(['icp-stop-assets'])
+            call_cli(['icp-stop-assets', project_type])
             context.scene.hvym_debug_url = ''
         elif context.scene.hvym_daemon_running == False:
             wm.progress_begin(0, 88)
             wm.progress_update(88)
-            project_type = context.scene.hvym_project_type
             output = run_futures_cmds([CLI+f' icp-start-assets {project_type}'])
             wm.progress_update(88)
             wm.progress_end()
