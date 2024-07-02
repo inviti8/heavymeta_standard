@@ -1293,6 +1293,11 @@ MESH_PROPS = [
             ('selector', "Selector", "")),
         description ="Type of interaction.",
         update=onUpdate)),
+    ('hvym_interactable_has_return', bpy.props.BoolProperty(
+           name="Has Return",
+           description="If true, associated callback will have return value.",
+           default=True,
+           update=onUpdate)),
     ('hvym_mesh_interaction_name', bpy.props.StringProperty(name='Name', default='', description ="Name of interaction.", update=onUpdate)),
     ('hvym_mesh_interaction_call', bpy.props.StringProperty(name='Call', default='', description ="Name of call.", update=onUpdate)),
     ('hvym_mesh_interaction_param_type',bpy.props.EnumProperty(
@@ -3801,6 +3806,8 @@ class HVYM_MeshPanel(bpy.types.Panel):
             box = col.box()
             row = box.row()
             row.prop(ctx, 'hvym_mesh_interaction_type')
+            row = box.row()
+            row.prop(ctx, 'hvym_interactable_has_return')
             if ctx.hvym_mesh_interaction_type != 'none':
                 box = col.box()
                 row = box.row()
