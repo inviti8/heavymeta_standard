@@ -1104,6 +1104,7 @@ def onUpdate(self, context):
     updateNftData(context)
     if context.scene.hvym_project_type == 'model':
         context.scene.hvym_daemon_path = call_cli(['icp-model-path'])
+        context.scene.hvym_mintable = False
     elif context.scene.hvym_project_type == 'minter':
         context.scene.hvym_daemon_path = call_cli(['icp-minter-path'])
         context.scene.hvym_mintable = True
@@ -1254,12 +1255,13 @@ PROPS = [
     ('hvym_project_type', bpy.props.EnumProperty(
         name='Project-Type',
         items=(
-            ('model', "Model", ""),
+            ('model', "Model Debugger", ""),
             ('minter', "Minter", ""),
             ('custom', "Custom", "")),
         description ="Type of Project.",
         update=onUpdate)),
-    ('hvym_custom_backend_path', bpy.props.StringProperty(name='Custom-Backend-Path', subtype='DIR_PATH', default='', description ="Custom backend to be used.", update=onUpdate)),
+    ('hvym_custom_backend_path', bpy.props.StringProperty(name='Custom-Backend-Path', subtype='DIR_PATH', default='', description ="(REQUIRED)Custom backend to be used.", update=onUpdate)),
+    ('hvym_custom_node_link', bpy.props.StringProperty(name='Custom-Node-Link', default='', description ="(REQUIRED)Custom local npm link to be used.", update=onUpdate)),
     ('hvym_daemon_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current active daemon project path.")),
     ('hvym_debug_url', bpy.props.StringProperty(name='Url', default='', description ="Current running debug url.", update=onUpdate)),
     ('hvym_daemon_running', bpy.props.BoolProperty(name="Daemon Running", description="Toggle the test daemon.", default=False)),
@@ -3694,6 +3696,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
         'hvym_export_name',
         'hvym_export_path',
         'hvym_custom_backend_path',
+        'hvym_custom_node_link',
         'hvym_project_name',
         'hvym_project_path',
         'hvym_daemon_path',
@@ -3706,7 +3709,6 @@ class HVYM_ScenePanel(bpy.types.Panel):
         box = col.row()
         row = box.row()
         row.separator()
-        row.prop(context.scene, 'hvym_mintable')
         if context.scene.hvym_mintable:
             for (prop_name, _) in PROPS:
                 row = col.row()
@@ -3728,6 +3730,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
         if context.scene.hvym_project_type=='custom':
             row = box.row()
             row.prop(context.scene, 'hvym_custom_backend_path')
+            row = box.row()
+            row.prop(context.scene, 'hvym_custom_node_link')
         row = box.row()
         row.operator('hvym_set.project_confirm_dialog', text="Set Project", icon="CONSOLE")
         row = box.row()
