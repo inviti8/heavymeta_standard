@@ -98,6 +98,7 @@ FILE_NAME = 'NOT SET'
 ICP_PATH = 'NOT SET'
 DAEMON_RUNNING = False
 LOADING = False
+PROJECT_SET = False
 
 FILE_PATH = Path(__file__).parent
 
@@ -691,9 +692,7 @@ def call_cli_threaded(command):
         print(command)
         thread = threading.Thread(target=run_command, args=(command,))
         thread.start()
-        print('thread.start()')
-        # thread.join()
-        # print('thread.join()')
+
 
 def call_cli(call_arr):
     result = None
@@ -3014,17 +3013,15 @@ class HVYM_DebugCustomClientConfirmDialog(bpy.types.Operator):
         return context.window_manager.invoke_confirm(self, event)
 
 
-class HVYM_SetProject(bpy.types.Operator):
-    bl_idname = "hvym_set.project"
-    bl_label = "Set Heavymeta project"
-    bl_description ="Sets the current working project for the heavymeta cli."
+class HVYM_SetProjectPaths(bpy.types.Operator):
+    bl_idname = "hvym_set.project_paths"
+    bl_label = "Set Heavymeta project paths"
+    bl_description ="Sets the current working project paths for the heavymeta cli."
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        print("Set Project")
-        print(context.scene.hvym_project_name)
+        print("Set Project Paths")
         if context.scene.hvym_nft_chain == 'ICP':
-            loadingMessage(f'Setting up {context.scene.hvym_project_type} project...')
             call_cli(['icp-project', context.scene.hvym_project_name])
             ICP_PATH = call_cli(['icp-project-path'])
             context.scene.hvym_project_path = ICP_PATH.rstrip()
@@ -3037,6 +3034,22 @@ class HVYM_SetProject(bpy.types.Operator):
             else:
                 context.scene.hvym_daemon_path = os.path.join(ICP_PATH, context.scene.hvym_project_type)
 
+
+        return {'FINISHED'}
+
+
+class HVYM_SetProject(bpy.types.Operator):
+    bl_idname = "hvym_set.project"
+    bl_label = "Set Heavymeta project"
+    bl_description ="Sets the current working project for the heavymeta cli."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Set Project")
+        print(context.scene.hvym_project_name)
+        if context.scene.hvym_nft_chain == 'ICP':
+            loadingMessage(f'Setting up {context.scene.hvym_project_type} project...')
+            bpy.ops.hvym_set.project_paths()
             call_cli(['icp-init', context.scene.hvym_project_type, '-f'])
             #call_cli_threaded(f'icp init "{context.scene.hvym_project_type}" -f')
 
@@ -4306,6 +4319,7 @@ blender_classes = [
     HVYM_DebugModelConfirmDialog,
     HVYM_DebugCustomClient,
     HVYM_DebugCustomClientConfirmDialog,
+    HVYM_SetProjectPaths,
     HVYM_SetProject,
     HVYM_SetConfirmDialog,
     HVYM_ToggleAssetDaemon,
@@ -4340,10 +4354,9 @@ def post_file_load(file_path):
         return
 
     if CLI_INSTALLED and ( bpy.context.scene.hvym_project_path != "NOT-SET!!!!" or bpy.context.scene.hvym_project_path != ICP_PATH):
-        #urls = run_command(CLI+' splash')
         call_cli_threaded('splash')
         print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_name}")
-        bpy.ops.hvym_set.project()
+        bpy.ops.hvym_set.project_paths()
 
 
 def register():
@@ -4379,6 +4392,7 @@ def register():
     bpy.types.Scene.hvym_menu_meta_data = bpy.props.CollectionProperty(type = HVYM_MenuDataItem)
     bpy.types.Scene.hvym_action_meta_data = bpy.props.CollectionProperty(type = HVYM_ActionDataItem)
     bpy.types.Scene.hvym_action_list_index = bpy.props.IntProperty(name = "Index for active hvym_action_meta_data", default = 0)
+    bpy.types.Scene.hvym_project_set = bpy.props.BoolProperty(name = "Flag for initializing project on file load", default = False)
     bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_DataItem)
     bpy.types.Collection.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
     bpy.types.Object.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
@@ -4402,6 +4416,7 @@ def register():
 
 
 def unregister():
+    bpy.types.Scene.hvym_project_set = False
     for pcoll in preview_collections.values():
         bpy.utils.previews.remove(pcoll)
     preview_collections.clear()
@@ -4410,6 +4425,7 @@ def unregister():
     del bpy.types.Scene.hvym_menu_meta_data
     del bpy.types.Scene.hvym_action_meta_data
     del bpy.types.Scene.hvym_action_list_index
+    del bpy.types.Scene.hvym_project_set
     del bpy.types.Collection.hvym_meta_data
     del bpy.types.Collection.hvym_menu_index
     del bpy.types.Object.hvym_menu_index
