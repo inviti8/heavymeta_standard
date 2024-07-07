@@ -1226,6 +1226,9 @@ def minterTypes(self, context):
 
     return result
 
+def loadingMessage(msg):
+    call_cli_threaded(f'custom-loading-msg "{msg}"')
+
 
 PROPS = [
     ('hvym_nft_chain', bpy.props.EnumProperty(
@@ -1261,7 +1264,6 @@ PROPS = [
         description ="Type of Project.",
         update=onUpdate)),
     ('hvym_custom_backend_path', bpy.props.StringProperty(name='Custom-Backend-Path', subtype='DIR_PATH', default='', description ="(REQUIRED)Custom backend to be used.", update=onUpdate)),
-    ('hvym_custom_node_link', bpy.props.StringProperty(name='Custom-Node-Link', default='', description ="(REQUIRED)Custom local npm link to be used.", update=onUpdate)),
     ('hvym_daemon_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current active daemon project path.")),
     ('hvym_debug_url', bpy.props.StringProperty(name='Url', default='', description ="Current running debug url.", update=onUpdate)),
     ('hvym_daemon_running', bpy.props.BoolProperty(name="Daemon Running", description="Toggle the test daemon.", default=False)),
@@ -2858,21 +2860,20 @@ class HVYM_DebugMinter(bpy.types.Operator):
     def execute(self, context):
         print("Debug Minter")
         file_path = bpy.data.filepath
-        file_name = bpy.context.scene.hvym_export_name
+        file_name = os.path.basename(file_path).replace('.blend', '')
+        #file_name = bpy.context.scene.hvym_export_name
 
         if context.scene.hvym_nft_chain == 'ICP':
             print('gets here 1')
             if context.scene.hvym_project_path is not None:
-                print('gets here 2!')
                 project_path = bpy.context.scene.hvym_daemon_path.rstrip()
-                print('project_path')
-                print(project_path)
                 #export gltf to project folder
                 if os.path.exists(project_path):
                     print('should export!')
                     wm = bpy.context.window_manager
                     wm.progress_begin(0, 88)
                     wm.progress_update(88)
+                    loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
                     model_dir = call_cli(['icp-minter-model-path']).rstrip()
                     out_file = os.path.join(model_dir, file_name)
                     #Clear old file
@@ -2901,7 +2902,8 @@ class HVYM_DebugModel(bpy.types.Operator):
     def execute(self, context):
         print("Debug Model")
         file_path = bpy.data.filepath
-        file_name = bpy.context.scene.hvym_export_name
+        file_name = os.path.basename(file_path).replace('.blend', '')
+        #file_name = bpy.context.scene.hvym_export_name
 
         if context.scene.hvym_nft_chain == 'ICP':
             if context.scene.hvym_project_path is not None:
@@ -2911,6 +2913,7 @@ class HVYM_DebugModel(bpy.types.Operator):
                     wm = bpy.context.window_manager
                     wm.progress_begin(0, 88)
                     wm.progress_update(88)
+                    loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
                     src_dir = os.path.join(project_path, 'src', 'frontend', 'assets')
                     out_file = os.path.join(src_dir, file_name)
                     #Clear old file
@@ -2957,7 +2960,9 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
     def execute(self, context):
         print("Debug Custom Client")
         file_path = bpy.data.filepath
-        file_name = bpy.context.scene.hvym_export_name
+        #file_name = bpy.context.scene.hvym_export_name
+        file_name = os.path.basename(file_path).replace('.blend', '')
+
 
         if context.scene.hvym_nft_chain == 'ICP':
             if context.scene.hvym_project_path is not None:
@@ -2968,6 +2973,7 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
                     wm = bpy.context.window_manager
                     wm.progress_begin(0, 88)
                     wm.progress_update(88)
+                    loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
                     src_dir = os.path.join(project_path, 'src', 'frontend', 'assets')
                     back_src_dir = os.path.join(project_path, 'src', 'backend')
                     out_file = os.path.join(src_dir, file_name)
@@ -3018,6 +3024,7 @@ class HVYM_SetProject(bpy.types.Operator):
         print("Set Project")
         print(context.scene.hvym_project_name)
         if context.scene.hvym_nft_chain == 'ICP':
+            loadingMessage(f'Setting up {context.scene.hvym_project_type} project...')
             call_cli(['icp-project', context.scene.hvym_project_name])
             ICP_PATH = call_cli(['icp-project-path'])
             context.scene.hvym_project_path = ICP_PATH.rstrip()
@@ -3031,6 +3038,7 @@ class HVYM_SetProject(bpy.types.Operator):
                 context.scene.hvym_daemon_path = os.path.join(ICP_PATH, context.scene.hvym_project_type)
 
             call_cli(['icp-init', context.scene.hvym_project_type, '-f'])
+            #call_cli_threaded(f'icp init "{context.scene.hvym_project_type}" -f')
 
 
         return {'FINISHED'}
@@ -3065,11 +3073,13 @@ class HVYM_ToggleAssetDaemon(bpy.types.Operator):
         project_type = context.scene.hvym_project_type
         
         if context.scene.hvym_daemon_running == True:
+            loadingMessage('Stopping DFX Daemon...')
             call_cli(['icp-stop-assets', project_type])
             context.scene.hvym_debug_url = ''
         elif context.scene.hvym_daemon_running == False:
             wm.progress_begin(0, 88)
             wm.progress_update(88)
+            loadingMessage('Starting DFX Daemon...')
             output = run_futures_cmds([CLI+f' icp-start-assets {project_type}'])
             wm.progress_update(88)
             wm.progress_end()
@@ -3117,6 +3127,18 @@ class HVYM_OpenDebugUrl(bpy.types.Operator):
     def execute(self, context):
         print("Open Url")
         webbrowser.open(context.scene.hvym_debug_url)
+        return {'FINISHED'}
+
+class HVYM_ExportProject(bpy.types.Operator):
+    bl_idname = "hvym_export.project"
+    bl_label = "Export Project"
+    bl_description ="Export the working Heavymeta project folder.."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        print("Export Project")
+        export_path = context.scene.hvym_export_path
+        call_cli(['icp-export-project', export_path])
         return {'FINISHED'}
 
 
@@ -3696,7 +3718,6 @@ class HVYM_ScenePanel(bpy.types.Panel):
         'hvym_export_name',
         'hvym_export_path',
         'hvym_custom_backend_path',
-        'hvym_custom_node_link',
         'hvym_project_name',
         'hvym_project_path',
         'hvym_daemon_path',
@@ -3730,8 +3751,6 @@ class HVYM_ScenePanel(bpy.types.Panel):
         if context.scene.hvym_project_type=='custom':
             row = box.row()
             row.prop(context.scene, 'hvym_custom_backend_path')
-            row = box.row()
-            row.prop(context.scene, 'hvym_custom_node_link')
         row = box.row()
         row.operator('hvym_set.project_confirm_dialog', text="Set Project", icon="CONSOLE")
         row = box.row()
@@ -3765,6 +3784,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
             row.operator('hvym_open_debug.url', text="Debug URL", icon="URL")
         box = col.box()
         row = box.row()
+        row.label(text="Project Export:")
+        row = box.row()
         row.prop(context.scene, 'hvym_export_name')
         row = box.row()
         row.prop(context.scene, 'hvym_export_path')
@@ -3775,6 +3796,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
             row.label(text="Deploy:")
             row = box.row()
             row.operator('hvym_deploy.confirm_minter_deploy_dialog', text="Deploy Minter", icon="URL")
+        row = box.row()
+        row.operator('hvym_export.project', text="Export Project", icon="EXPORT")
             # row = box.row()
             # row.operator('hvym_deploy.confirm_nft_deploy_dialog', text="Deploy NFT", icon="URL")
         
@@ -4287,6 +4310,7 @@ blender_classes = [
     HVYM_SetConfirmDialog,
     HVYM_ToggleAssetDaemon,
     HVYM_OpenDebugUrl,
+    HVYM_ExportProject,
     HVYM_DataReload,
     HVYM_ExportHelper,
     HVYM_DeployMinter,
@@ -4316,6 +4340,8 @@ def post_file_load(file_path):
         return
 
     if CLI_INSTALLED and ( bpy.context.scene.hvym_project_path != "NOT-SET!!!!" or bpy.context.scene.hvym_project_path != ICP_PATH):
+        #urls = run_command(CLI+' splash')
+        call_cli_threaded('splash')
         print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_name}")
         bpy.ops.hvym_set.project()
 
