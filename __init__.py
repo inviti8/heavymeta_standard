@@ -1040,6 +1040,10 @@ def property_group_to_json(pg):
     #print(json.dumps(property_group_to_dict(pg)))
     return json.dumps(property_group_to_dict(pg))
 
+def UpdateAccountInfo(context):
+    account = ast.literal_eval(run_command(CLI+f' icp-account-info'))
+    context.scene.hvym_account_name = account['active_id']
+    context.scene.hvym_address = account['principal']
 
 def updateNftData(context):
     #Update all the props on any change
@@ -1258,6 +1262,8 @@ PROPS = [
     ('hvym_minter_name', bpy.props.StringProperty(name='Minter-Name', default='', description ="Name of minter.", update=onUpdate)),
     ('hvym_minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
+    ('hvym_account_name', bpy.props.StringProperty(name='Account-Name', default='', description ="Current active account.", update=onUpdate)),
+    ('hvym_address', bpy.props.StringProperty(name='Address', default='', description ="Current active address.", update=onUpdate)),
     ('hvym_project_name', bpy.props.StringProperty(name='Project-Name', default='NOT-SET!!!!', description ="Collection name for asset deployement.", update=onUpdate)),
     ('hvym_project_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current working project path.", update=onUpdate)),
     ('hvym_project_type', bpy.props.EnumProperty(
@@ -3035,6 +3041,42 @@ class HVYM_SetProject(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class HVYM_SetAccount(bpy.types.Operator):
+    bl_idname = "hvym_set.account"
+    bl_label = "Set Crypto Account"
+    bl_description ="Sets the current crypto account."
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        setup = choicePrompt(f'Change current account?')
+        if setup.rstrip() == 'OK':
+            print("Set Account")
+            print(context.scene.hvym_project_name)
+            if context.scene.hvym_nft_chain == 'ICP':
+                run_command(CLI+f' icp-set-account')
+                UpdateAccountInfo(context)
+
+        return {'FINISHED'}
+
+
+class HVYM_NewAccount(bpy.types.Operator):
+    bl_idname = "hvym_new.account"
+    bl_label = "New Crypto Account"
+    bl_description ="Creates and sets the current crypto account."
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        setup = choicePrompt(f'Change current account?')
+        if setup.rstrip() == 'OK':
+            print("Set Account")
+            print(context.scene.hvym_project_name)
+            if context.scene.hvym_nft_chain == 'ICP':
+                run_command(CLI+f' icp-new-account')
+                UpdateAccountInfo(context)
+
+        return {'FINISHED'}
+
+
 class HVYM_ToggleAssetDaemon(bpy.types.Operator):
     bl_idname = "hvym_toggle_asset.daemon"
     bl_label = "Toggle the test daemon."
@@ -3684,6 +3726,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
 
     def draw(self, context):
         filter_props = ['hvym_mintable',
+        'hvym_account_name',
+        'hvym_address',
         'hvym_daemon_running',
         'hvym_contract_address',
         'hvym_prem_nft_price',
@@ -3700,6 +3744,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
         box = col.row()
         row = box.row()
         row.operator('hvym_data.reload', text='', icon='FILE_REFRESH')
+        row.prop(context.scene, 'hvym_project_type')
+        row = box.row()
         box = col.row()
         row = box.row()
         row.separator()
@@ -3712,14 +3758,21 @@ class HVYM_ScenePanel(bpy.types.Panel):
                 if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
                     if prop_name not in filter_props:
                         row.prop(context.scene, prop_name)
+        row = box.row()
+        row.label(text=f"Account: {context.scene.hvym_account_name}")
         row = col.row()
+        row.separator()
+        row.label(text=f"Address: {context.scene.hvym_address}")
+        row = col.row()
+        row.operator('hvym_set.account', text="Set Account", icon="USER")
+        box = col.row()
+        row.operator('hvym_new.account', text="New Account", icon="COMMUNITY")
+        box = col.row()
         box = col.box()
         row = box.row()
         row.label(text="Project Settings:")
         row = box.row()
         row.prop(context.scene, 'hvym_project_name')
-        row = box.row()
-        row.prop(context.scene, 'hvym_project_type')
         row = box.row()
         if context.scene.hvym_project_type=='custom':
             row = box.row()
@@ -4279,6 +4332,8 @@ blender_classes = [
     HVYM_DebugCustomClient,
     HVYM_SetProjectPaths,
     HVYM_SetProject,
+    HVYM_NewAccount,
+    HVYM_SetAccount,
     HVYM_ToggleAssetDaemon,
     HVYM_OpenDebugUrl,
     HVYM_ExportProject,
