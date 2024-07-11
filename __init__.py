@@ -1228,6 +1228,12 @@ def minterTypes(self, context):
 def loadingMessage(msg):
     call_cli_threaded(f'custom-loading-msg "{msg}"')
 
+def prompt(msg):
+    run_command(CLI+f' custom-prompt "{msg}"')
+
+def choicePrompt(msg):
+    return run_command(CLI+f' custom-choice-prompt "{msg}"')
+
 
 PROPS = [
     ('hvym_nft_chain', bpy.props.EnumProperty(
@@ -2863,30 +2869,33 @@ class HVYM_DebugMinter(bpy.types.Operator):
         #file_name = bpy.context.scene.hvym_export_name
 
         if context.scene.hvym_nft_chain == 'ICP':
-            print('gets here 1')
-            if context.scene.hvym_project_path is not None:
-                project_path = bpy.context.scene.hvym_daemon_path.rstrip()
-                #export gltf to project folder
-                if os.path.exists(project_path):
-                    print('should export!')
-                    wm = bpy.context.window_manager
-                    wm.progress_begin(0, 88)
-                    wm.progress_update(88)
-                    loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
-                    model_dir = call_cli(['icp-minter-model-path']).rstrip()
-                    out_file = os.path.join(model_dir, file_name)
-                    #Clear old file
-                    for filename in os.listdir(model_dir):
-                        file_path = os.path.join(model_dir, filename)
-                        if os.path.isfile(file_path) and '.glb' in file_path:
-                            os.unlink(file_path)
+            setup = choicePrompt(f'''Debug {context.scene.hvym_nft_chain} minter?
+                ''')
+            if setup.rstrip() == 'OK':
+                if context.scene.hvym_project_path is not None:
+                    project_path = bpy.context.scene.hvym_daemon_path.rstrip()
+                    #export gltf to project folder
+                    if os.path.exists(project_path):
+                        print('should export!')
+                        wm = bpy.context.window_manager
+                        wm.progress_begin(0, 88)
+                        wm.progress_update(88)
+                        loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
+                        model_dir = call_cli(['icp-minter-model-path']).rstrip()
+                        out_file = os.path.join(model_dir, file_name)
+                        #Clear old file
+                        for filename in os.listdir(model_dir):
+                            file_path = os.path.join(model_dir, filename)
+                            if os.path.isfile(file_path) and '.glb' in file_path:
+                                os.unlink(file_path)
 
-                    bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                    run_command(CLI+' icp-debug-model-minter '+file_name+'.glb')
-                    project_type = context.scene.hvym_project_type
-                    urls = run_command(CLI+f' icp-deploy-assets {project_type}')
-                    context.scene.hvym_debug_url = ast.literal_eval(urls)[3]
-                    wm.progress_end()
+                        bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
+                        run_command(CLI+' icp-debug-model-minter '+file_name+'.glb')
+                        project_type = context.scene.hvym_project_type
+                        urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+                        context.scene.hvym_debug_url = ast.literal_eval(urls)[3]
+                        wm.progress_end()
+                        prompt(f'Project deployed locally@:/n{context.scene.hvym_debug_url}/n')
 
 
         return {'FINISHED'}
@@ -2902,52 +2911,35 @@ class HVYM_DebugModel(bpy.types.Operator):
         print("Debug Model")
         file_path = bpy.data.filepath
         file_name = os.path.basename(file_path).replace('.blend', '')
-        #file_name = bpy.context.scene.hvym_export_name
 
         if context.scene.hvym_nft_chain == 'ICP':
-            if context.scene.hvym_project_path is not None:
-                project_path = bpy.context.scene.hvym_daemon_path.rstrip()
-                #export gltf to project folder
-                if os.path.exists(project_path):
-                    wm = bpy.context.window_manager
-                    wm.progress_begin(0, 88)
-                    wm.progress_update(88)
-                    loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
-                    src_dir = os.path.join(project_path, 'src', 'frontend', 'assets')
-                    out_file = os.path.join(src_dir, file_name)
-                    #Clear old file
-                    for filename in os.listdir(src_dir):
-                        file_path = os.path.join(src_dir, filename)
-                        if os.path.isfile(file_path) and '.glb' in file_path:
-                            os.unlink(file_path)
+            setup = choicePrompt(f'Debug {context.scene.hvym_nft_chain} minter?/n')
+            if setup.rstrip() == 'OK':
+                if context.scene.hvym_project_path is not None:
+                    project_path = bpy.context.scene.hvym_daemon_path.rstrip()
+                    #export gltf to project folder
+                    if os.path.exists(project_path):
+                        wm = bpy.context.window_manager
+                        wm.progress_begin(0, 88)
+                        wm.progress_update(88)
+                        loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
+                        src_dir = os.path.join(project_path, 'src', 'frontend', 'assets')
+                        out_file = os.path.join(src_dir, file_name)
+                        #Clear old file
+                        for filename in os.listdir(src_dir):
+                            file_path = os.path.join(src_dir, filename)
+                            if os.path.isfile(file_path) and '.glb' in file_path:
+                                os.unlink(file_path)
 
-                    bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                    run_command(CLI+' icp-debug-model '+file_name+'.glb')
-                    project_type = context.scene.hvym_project_type
-                    urls = run_command(CLI+f' icp-deploy-assets {project_type}')
-                    wm.progress_end()
-                    context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
+                        bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
+                        run_command(CLI+' icp-debug-model '+file_name+'.glb')
+                        project_type = context.scene.hvym_project_type
+                        urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+                        wm.progress_end()
+                        context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
+                        prompt(f'Project deployed locally@:/n{context.scene.hvym_debug_url}/n')
 
         return {'FINISHED'}
-
-
-class HVYM_DebugModelConfirmDialog(bpy.types.Operator):
-    """Deploys debug model Editor."""
-    bl_idname = "hvym_debug.model_confirm_dialog"
-    bl_label = "Deploy debug model?"
-    bl_options = {'REGISTER', 'INTERNAL'}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        self.report({'INFO'}, "YES")
-        bpy.ops.hvym_debug.model()
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        return context.window_manager.invoke_confirm(self, event)
 
 
 class HVYM_DebugCustomClient(bpy.types.Operator):
@@ -2964,53 +2956,37 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
 
 
         if context.scene.hvym_nft_chain == 'ICP':
-            if context.scene.hvym_project_path is not None:
-                project_path = bpy.context.scene.hvym_daemon_path.rstrip()
-                backend_path = bpy.context.scene.hvym_custom_backend_path.rstrip()
-                #export gltf to project folder
-                if os.path.exists(project_path) and os.path.exists(backend_path):
-                    wm = bpy.context.window_manager
-                    wm.progress_begin(0, 88)
-                    wm.progress_update(88)
-                    loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
-                    src_dir = os.path.join(project_path, 'src', 'frontend', 'assets')
-                    back_src_dir = os.path.join(project_path, 'src', 'backend')
-                    out_file = os.path.join(src_dir, file_name)
-                    #Clear old glb file
-                    for filename in os.listdir(src_dir):
-                        file_path = os.path.join(src_dir, filename)
-                        if os.path.isfile(file_path) and '.glb' in file_path:
-                            os.unlink(file_path)
+            setup = choicePrompt(f'Debug {context.scene.hvym_nft_chain} custom client?/n')
+            if setup.rstrip() == 'OK':
+                if context.scene.hvym_project_path is not None:
+                    project_path = bpy.context.scene.hvym_daemon_path.rstrip()
+                    backend_path = bpy.context.scene.hvym_custom_backend_path.rstrip()
+                    #export gltf to project folder
+                    if os.path.exists(project_path) and os.path.exists(backend_path):
+                        wm = bpy.context.window_manager
+                        wm.progress_begin(0, 88)
+                        wm.progress_update(88)
+                        loadingMessage(f'Building {context.scene.hvym_project_type} Client...')
+                        src_dir = os.path.join(project_path, 'src', 'frontend', 'assets')
+                        back_src_dir = os.path.join(project_path, 'src', 'backend')
+                        out_file = os.path.join(src_dir, file_name)
+                        #Clear old glb file
+                        for filename in os.listdir(src_dir):
+                            file_path = os.path.join(src_dir, filename)
+                            if os.path.isfile(file_path) and '.glb' in file_path:
+                                os.unlink(file_path)
 
-                    print(out_file)
+                        print(out_file)
 
-                    bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                    run_command(CLI+' icp-debug-custom-client '+file_name+'.glb '+backend_path)
-                    project_type = context.scene.hvym_project_type
-                    urls = run_command(CLI+f' icp-deploy-assets {project_type}')
-                    wm.progress_end()
-                    context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
+                        bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
+                        run_command(CLI+' icp-debug-custom-client '+file_name+'.glb '+backend_path)
+                        project_type = context.scene.hvym_project_type
+                        urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+                        wm.progress_end()
+                        context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
+                        prompt(f'Project deployed locally@:/n{context.scene.hvym_debug_url}/n')
 
         return {'FINISHED'}
-
-
-class HVYM_DebugCustomClientConfirmDialog(bpy.types.Operator):
-    """Deploys debug model Editor."""
-    bl_idname = "hvym_debug.custom_client_confirm_dialog"
-    bl_label = "Deploy debug custom client?"
-    bl_options = {'REGISTER', 'INTERNAL'}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        self.report({'INFO'}, "YES")
-        bpy.ops.hvym_debug.custom_client()
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        return context.window_manager.invoke_confirm(self, event)
 
 
 class HVYM_SetProjectPaths(bpy.types.Operator):
@@ -3043,36 +3019,20 @@ class HVYM_SetProject(bpy.types.Operator):
     bl_label = "Set Heavymeta project"
     bl_description ="Sets the current working project for the heavymeta cli."
     bl_options = {'REGISTER', 'UNDO'}
-
+    
     def execute(self, context):
-        print("Set Project")
-        print(context.scene.hvym_project_name)
-        if context.scene.hvym_nft_chain == 'ICP':
-            loadingMessage(f'Setting up {context.scene.hvym_project_type} project...')
-            bpy.ops.hvym_set.project_paths()
-            call_cli(['icp-init', context.scene.hvym_project_type, '-f'])
-            #call_cli_threaded(f'icp init "{context.scene.hvym_project_type}" -f')
+        setup = choicePrompt(f'Set up {context.scene.hvym_project_type} project?')
+        if setup.rstrip() == 'OK':
+            print("Set Project")
+            print(context.scene.hvym_project_name)
+            if context.scene.hvym_nft_chain == 'ICP':
+                loadingMessage(f'Setting up {context.scene.hvym_project_type} project...')
+                bpy.ops.hvym_set.project_paths()
+                call_cli(['icp-init', context.scene.hvym_project_type, '-f'])
 
+            prompt(f'{context.scene.hvym_project_type} project has been created!')
 
         return {'FINISHED'}
-
-class HVYM_SetConfirmDialog(bpy.types.Operator):
-    """Sets the current Heavymeta prject based on settings."""
-    bl_idname = "hvym_set.project_confirm_dialog"
-    bl_label = "Set the current working project?"
-    bl_options = {'REGISTER', 'INTERNAL'}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        self.report({'INFO'}, "YES")
-        bpy.ops.hvym_set.project()
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        return context.window_manager.invoke_confirm(self, event)
 
 
 class HVYM_ToggleAssetDaemon(bpy.types.Operator):
@@ -3765,7 +3725,7 @@ class HVYM_ScenePanel(bpy.types.Panel):
             row = box.row()
             row.prop(context.scene, 'hvym_custom_backend_path')
         row = box.row()
-        row.operator('hvym_set.project_confirm_dialog', text="Set Project", icon="CONSOLE")
+        row.operator('hvym_set.project', text="Set Project", icon="CONSOLE")
         row = box.row()
         row.label(text="Internet Computer Project Path:")
         row = box.row()
@@ -3787,9 +3747,9 @@ class HVYM_ScenePanel(bpy.types.Panel):
             if context.scene.hvym_project_type == 'minter':
                 row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
             elif context.scene.hvym_project_type == 'model':
-                row.operator('hvym_debug.model_confirm_dialog', text="Debug Model", icon="CONSOLE")
+                row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
             elif context.scene.hvym_project_type == 'custom':
-                row.operator('hvym_debug.custom_client_confirm_dialog', text="Debug Custom Client", icon="CONSOLE")
+                row.operator('hvym_debug.custom_client', text="Debug Custom Client", icon="CONSOLE")
         row = box.row()
         if context.scene.hvym_debug_url != '':
             row.prop(context.scene, 'hvym_debug_url')
@@ -4316,12 +4276,9 @@ blender_classes = [
     HVYM_LIST_DefaultValues,
     HVYM_DebugMinter,
     HVYM_DebugModel,
-    HVYM_DebugModelConfirmDialog,
     HVYM_DebugCustomClient,
-    HVYM_DebugCustomClientConfirmDialog,
     HVYM_SetProjectPaths,
     HVYM_SetProject,
-    HVYM_SetConfirmDialog,
     HVYM_ToggleAssetDaemon,
     HVYM_OpenDebugUrl,
     HVYM_ExportProject,
