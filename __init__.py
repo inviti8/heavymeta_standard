@@ -1261,7 +1261,7 @@ PROPS = [
         update=onUpdate)),
     ('hvym_minter_name', bpy.props.StringProperty(name='Minter-Name', default='', description ="Name of minter.", update=onUpdate)),
     ('hvym_minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
-    ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Image', subtype='FILE_PATH', default='', description ="Custom header image for the minter ui.", update=onUpdate)),
+    ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Logo', default='', description ="Data url for logo.")),
     ('hvym_account_name', bpy.props.StringProperty(name='Account-Name', default='', description ="Current active account.", update=onUpdate)),
     ('hvym_address', bpy.props.StringProperty(name='Address', default='', description ="Current active address.", update=onUpdate)),
     ('hvym_project_name', bpy.props.StringProperty(name='Project-Name', default='NOT-SET!!!!', description ="Collection name for asset deployement.", update=onUpdate)),
@@ -2872,7 +2872,6 @@ class HVYM_DebugMinter(bpy.types.Operator):
         print("Debug Minter")
         file_path = bpy.data.filepath
         file_name = os.path.basename(file_path).replace('.blend', '')
-        #file_name = bpy.context.scene.hvym_export_name
 
         if context.scene.hvym_nft_chain == 'ICP':
             setup = choicePrompt(f'''Debug {context.scene.hvym_nft_chain} minter?
@@ -2917,9 +2916,13 @@ class HVYM_DebugModel(bpy.types.Operator):
         print("Debug Model")
         file_path = bpy.data.filepath
         file_name = os.path.basename(file_path).replace('.blend', '')
+        msg = f'''
+        Debug your model for
+        deployment on {context.scene.hvym_nft_chain}?
+            '''
 
         if context.scene.hvym_nft_chain == 'ICP':
-            setup = choicePrompt(f'Debug {context.scene.hvym_nft_chain} minter?/n')
+            setup = choicePrompt(msg)
             if setup.rstrip() == 'OK':
                 if context.scene.hvym_project_path is not None:
                     project_path = bpy.context.scene.hvym_daemon_path.rstrip()
@@ -3049,11 +3052,13 @@ class HVYM_SetAccount(bpy.types.Operator):
     
     def execute(self, context):
         setup = choicePrompt(f'Change current account?')
+        loading = None
         if setup.rstrip() == 'OK':
             print("Set Account")
             print(context.scene.hvym_project_name)
             if context.scene.hvym_nft_chain == 'ICP':
-                run_command(CLI+f' icp-set-account')
+                run_command(CLI+f' icp-set-account -q')
+                loadingMessage('Working...')
                 UpdateAccountInfo(context)
 
         return {'FINISHED'}
@@ -3066,13 +3071,31 @@ class HVYM_NewAccount(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        setup = choicePrompt(f'Change current account?')
+        setup = choicePrompt(f'Create a new account?')
         if setup.rstrip() == 'OK':
             print("Set Account")
             print(context.scene.hvym_project_name)
             if context.scene.hvym_nft_chain == 'ICP':
                 run_command(CLI+f' icp-new-account')
+                loadingMessage('Working...')
                 UpdateAccountInfo(context)
+
+        return {'FINISHED'}
+
+
+class HVYM_SetLogoImage(bpy.types.Operator):
+    bl_idname = "hvym_set.logo_image"
+    bl_label = "Set logo image for minter"
+    bl_description ="Prompt to select image, convert image to data url."
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        if context.scene.hvym_nft_chain == 'ICP':
+            msg = '''
+            Select a logo image(png or svg)
+            to be converted to base64.
+            '''
+            context.scene.hvym_minter_image = call_cli(['img-to-url', msg])
 
         return {'FINISHED'}
 
@@ -3722,9 +3745,12 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row = box.row()
         pcoll = preview_collections["main"]
         logo = pcoll["logo"]
+        icp_logo = pcoll["icp_logo"]
         row.label(text="", icon_value=logo.icon_id)
 
     def draw(self, context):
+        pcoll = preview_collections["main"]
+        icp_logo = pcoll["icp_logo"]
         filter_props = ['hvym_mintable',
         'hvym_account_name',
         'hvym_address',
@@ -3739,7 +3765,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
         'hvym_project_path',
         'hvym_daemon_path',
         'hvym_project_type',
-        'hvym_debug_url']
+        'hvym_debug_url',
+        'hvym_nft_chain']
         col = self.layout.column()
         box = col.row()
         row = box.row()
@@ -3748,25 +3775,40 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row = box.row()
         box = col.row()
         row = box.row()
-        row.separator()
-        if context.scene.hvym_mintable:
-            for (prop_name, _) in PROPS:
-                row = col.row()
-                if prop_name == 'minter_version':
-                    row = row.row()
-                    row.enabled = context.scene.add_version
-                if context.scene.hvym_nft_chain == 'ICP' or context.scene.hvym_nft_chain == 'AR':
-                    if prop_name not in filter_props:
-                        row.prop(context.scene, prop_name)
+        row.prop(context.scene, 'hvym_nft_chain')
+        row = box.row()
+        box = col.row()
+        row = box.row()
+        row.label(text="_______________________________________________________________________________________________________________________________")
+        row = box.row()
+        box = col.row()
+        if context.scene.hvym_nft_chain == 'ICP':
+            box = col.row()
+            row = box.row()
+            row.label(text="Dfinity", icon_value=icp_logo.icon_id)
+            box = col.row()
+        row = box.row()
+        box = col.row()
         row = box.row()
         row.label(text=f"Account: {context.scene.hvym_account_name}")
         row = col.row()
-        row.separator()
         row.label(text=f"Address: {context.scene.hvym_address}")
         row = col.row()
         row.operator('hvym_set.account', text="Set Account", icon="USER")
         box = col.row()
         row.operator('hvym_new.account', text="New Account", icon="COMMUNITY")
+        box = col.row()
+        if context.scene.hvym_mintable:
+            for (prop_name, _) in PROPS:
+                row = col.row()
+                if prop_name == 'hvym_minter_image':
+                    row.operator('hvym_set.logo_image', text="Set Logo", icon="FILE_IMAGE")
+                if prop_name == 'minter_version':
+                    row = row.row()
+                    row.enabled = context.scene.add_version
+                if context.scene.hvym_nft_chain == 'ICP':
+                    if prop_name not in filter_props:
+                        row.prop(context.scene, prop_name)
         box = col.row()
         box = col.box()
         row = box.row()
@@ -4334,6 +4376,7 @@ blender_classes = [
     HVYM_SetProject,
     HVYM_NewAccount,
     HVYM_SetAccount,
+    HVYM_SetLogoImage,
     HVYM_ToggleAssetDaemon,
     HVYM_OpenDebugUrl,
     HVYM_ExportProject,
@@ -4369,6 +4412,7 @@ def post_file_load(file_path):
         call_cli_threaded('splash')
         print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_name}")
         bpy.ops.hvym_set.project_paths()
+        UpdateAccountInfo(bpy.context)
 
 
 def register():
@@ -4383,6 +4427,7 @@ def register():
 
     # load a preview thumbnail of a file and store in the previews collection
     pcoll.load("logo", os.path.join(icons_dir, "hvym_logo_128.png"), 'IMAGE')
+    pcoll.load("icp_logo", os.path.join(icons_dir, "icp_logo.png"), 'IMAGE')
 
     preview_collections["main"] = pcoll
 
