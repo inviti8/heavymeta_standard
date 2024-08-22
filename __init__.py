@@ -1102,9 +1102,7 @@ def updateNftData(context):
     context.scene.hvym_collections_data.nftData['project'] = {'name':context.scene.hvym_project_name, 'type':context.scene.hvym_project_type}
 
 
-def onUpdate(self, context):
-    RebuildMaterialSets(context)
-    updateNftData(context)
+def onUpdateProject(self, context):
     if context.scene.hvym_project_type == 'model':
         context.scene.hvym_daemon_path = call_cli(['icp-model-path'])
         context.scene.hvym_mintable = False
@@ -1115,6 +1113,9 @@ def onUpdate(self, context):
         context.scene.hvym_daemon_path = call_cli(['icp-custom-client-path'])
         context.scene.hvym_mintable = False
 
+def onUpdate(self, context):
+    RebuildMaterialSets(context)
+    #updateNftData(context)
     #this flag is used when props are updated by the user
     #This is so values can be pulled in from built in props
     if hasattr(self, 'no_update') and self.no_update:
@@ -1273,7 +1274,7 @@ PROPS = [
             ('minter', "Minter", ""),
             ('custom', "Custom", "")),
         description ="Type of Project.",
-        update=onUpdate)),
+        update=onUpdateProject)),
     ('hvym_custom_backend_path', bpy.props.StringProperty(name='Custom-Backend-Path', subtype='DIR_PATH', default='', description ="(REQUIRED)Custom backend to be used.", update=onUpdate)),
     ('hvym_daemon_path', bpy.props.StringProperty(name=':', default='NOT-SET!!!!', description ="Current active daemon project path.")),
     ('hvym_debug_url', bpy.props.StringProperty(name='Url', default='', description ="Current running debug url.", update=onUpdate)),
@@ -3857,13 +3858,13 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row.prop(context.scene, 'hvym_export_name')
         row = box.row()
         row.prop(context.scene, 'hvym_export_path')
-        if context.scene.hvym_mintable:
+        if context.scene.hvym_mintable or (context.scene.hvym_project_type=='custom'):
             box = col.box()
             row = box.row()
             row.separator()
             row.label(text="Deploy:")
             row = box.row()
-            row.operator('hvym_deploy.confirm_minter_deploy_dialog', text="Deploy Minter", icon="URL")
+            row.operator('hvym_deploy.confirm_minter_deploy_dialog', text="Deploy", icon="URL")
         row = box.row()
         row.operator('hvym_export.project', text="Export Project", icon="EXPORT")
             # row = box.row()
@@ -4320,6 +4321,22 @@ class HVYM_AddAllMeshMaterialsToSet(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class HVYM_UpdateHandler(bpy.types.Operator):
+    """Update data."""
+    bl_idname = "hvym_meta_data.update"
+    bl_label = "Update Data"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        updateNftData(context)
+    
+
+        return {'FINISHED'}
+
+
 
 # -------------------------------------------------------------------
 #   Class Registration
@@ -4400,7 +4417,8 @@ blender_classes = [
     HVYM_AddAnim,
     HVYM_AddMaterial,
     HVYM_AddMaterialToSet,
-    HVYM_AddAllMeshMaterialsToSet
+    HVYM_AddAllMeshMaterialsToSet,
+    HVYM_UpdateHandler
     ]
 
 @persistent
@@ -4413,6 +4431,10 @@ def post_file_load(file_path):
         print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_name}")
         bpy.ops.hvym_set.project_paths()
         UpdateAccountInfo(bpy.context)
+
+@persistent
+def post_file_save(file_path):
+    bpy.ops.hvym_meta_data.update()
 
 
 def register():
@@ -4470,6 +4492,7 @@ def register():
         bpy.types.Object.hvym_id = bpy.props.StringProperty(default = '')
 
     bpy.app.handlers.load_post.append(post_file_load)
+    bpy.app.handlers.save_post.append(post_file_save)
 
 
 def unregister():
