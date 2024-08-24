@@ -1801,11 +1801,6 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default=True,
            update=onUpdate)
 
-    prop_use_method: bpy.props.BoolProperty(
-           name="Use Method",
-           description="Use a Getter or Setter method for this val prop.",
-           default=False,
-           update=onUpdate)
 
     prop_use_behavior: bpy.props.BoolProperty(
            name="Use Behavior",
@@ -1823,18 +1818,6 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
                 ('Getter', 'Getter', ""),
                 ('Static', 'Static', ""),),
             update=onUpdate)
-
-    prop_setter_method: bpy.props.StringProperty(
-           name="Setter Method",
-           description="Setter method for value prop.",
-           default="",
-           update=onUpdate)
-
-    prop_getter_method: bpy.props.StringProperty(
-           name="Getter Method",
-           description="Getter method for value prop.",
-           default="",
-           update=onUpdate)
 
     prop_use_case: bpy.props.EnumProperty(
             name='Action Type',
@@ -3804,14 +3787,6 @@ class HVYM_DataPanel(bpy.types.Panel):
                     row.prop(item, "float_max")
                     if item.prop_action_type != 'Static':
                         row.prop(item, "float_amount")
-                if item.prop_action_type == 'Setter' or item.prop_action_type == 'Getter':
-                    row = box.row()
-                    row.prop(item, "prop_use_method")
-                    row = box.row()
-                    if item.prop_use_method and item.prop_action_type == 'Setter':
-                        row.prop(item, "prop_setter_method")
-                    elif item.prop_use_method and item.prop_action_type == 'Getter':
-                        row.prop(item, "prop_getter_method")
 
                 row = box.row()
                 row.prop(item, "prop_use_behavior")
