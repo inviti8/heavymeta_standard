@@ -1665,7 +1665,7 @@ class HVYM_ActionDataItem(bpy.types.PropertyGroup):
         type=bpy.types.Object)
 
 
-class HVYM_BehaviorDataItem(bpy.types.PropertyGroup):
+class HVYM_BehaviorSet(bpy.types.PropertyGroup):
     """Group of properties representing various behavior meta data."""
 
     trait_type: bpy.props.StringProperty(
@@ -1678,6 +1678,18 @@ class HVYM_BehaviorDataItem(bpy.types.PropertyGroup):
            name="Name",
            description="A name for this item",
            default="",
+           update=onUpdate)
+
+    values: bpy.props.StringProperty(
+           name="Values",
+           description="",
+           default="Behavior",
+           update=onUpdate)
+
+    use_method: bpy.props.BoolProperty(
+           name="Use Method",
+           description="Call method by string name for behavior.",
+           default=False,
            update=onUpdate)
 
     method: bpy.props.StringProperty(
@@ -1708,11 +1720,13 @@ class HVYM_UL_BehaviorList(bpy.types.UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.label(text=item.type, icon = custom_icon)
             layout.label(text=item.values)
+            layout.label(text=item.behavior_type)
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.label(text=item.type, icon = custom_icon)
             layout.label(text=item.values)
+            layout.label(text=item.behavior_type)
 
 
 
@@ -2095,6 +2109,14 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default="Material Sets",
            update=onUpdate)
 
+    behavior_set: bpy.props.CollectionProperty(type = HVYM_BehaviorSet)
+
+    behavior_set_index: bpy.props.IntProperty(
+           name="Behavior Set Index",
+           description="Index of selected item in the behavior set list.",
+           default=-1,
+           update=onUpdate)
+
 
 class HVYM_UL_DataList(bpy.types.UIList):
     """Heavymeta data list."""
@@ -2403,12 +2425,17 @@ class HVYM_LIST_NewBehaviorPropItem(bpy.types.Operator):
     bl_label = "Add a new behavior property item"
 
     def execute(self, context):
-        ob = context.active_object
+        item = None
+        if len(context.collection.hvym_meta_data)>0:
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+            print(item.trait_type)
 
-        item = context.collection.hvym_behavior_meta_data.add()
-        item.type = '*'
-        item.trait_type = 'behavior'
-        item.values = 'Behavior Property'
+        if item != None and item.trait_type != 'property':
+            return
+
+        b_item = item.behavior_set.add()
+        b_item.type = '*'
+        b_item.values = 'Behavior'
 
         return{'FINISHED'}
 
@@ -2421,16 +2448,20 @@ class HVYM_LIST_DeleteBehaviorItem(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.collection.hvym_behavior_meta_data
+        item = None
+        if len(context.collection.hvym_meta_data)>0:
+            item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        return item != None and len(item.behavior_set)>0
 
     def execute(self, context):
-        ctx = context.collection
-        hvym_behavior_meta_data = context.collection.hvym_behavior_meta_data
-        index = context.collection.hvym_behavior_list_index
-        item = ctx.hvym_behavior_meta_data[index]
+        item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
+        if item.trait_type != 'property':
+            return
 
-        hvym_behavior_meta_data.remove(index)
-        context.collection.hvym_behavior_list_index = min(max(0, index - 1), len(hvym_behavior_meta_data) - 1)
+        index = item.behavior_set_index
+
+        item.behavior_set.remove(index)
+        item.behavior_set_index = min(max(0, index - 1), len(item.behavior_set) - 1)
 
         return{'FINISHED'}
 
@@ -3790,17 +3821,23 @@ class HVYM_DataPanel(bpy.types.Panel):
                     row.separator()
                     row.label(text="Behaviors:")
                     row = box.row()
-                    row.template_list("HVYM_UL_BehaviorList", "", ctx,
-                        "hvym_behavior_meta_data", ctx, "hvym_behavior_list_index")
+                    row.template_list("HVYM_UL_BehaviorList", "", item,
+                          "behavior_set", item, "behavior_set_index")
 
                     row = box.row()
                     row.operator('hvym_meta_data.new_behavior_item', text='+', icon='SHADERFX')
-                    row.operator('hvym_meta_data.delete_behavior_item', icon='CANCEL')
-                    if ctx.hvym_behavior_list_index >= 0 and ctx.hvym_behavior_meta_data:
-                        b_item = ctx.hvym_behavior_meta_data[ctx.hvym_behavior_list_index]
+                    row.operator('hvym_meta_data.delete_behavior_item', text='-', icon='CANCEL')
+
+                    b_item = item.behavior_set[item.behavior_set_index]
+                    row = box.row()
+                    row.prop(b_item, "type")
+                    row.prop(b_item, "behavior_type")
+                    row = box.row()
+                    row.prop(b_item, "use_method")
+                    if b_item.use_method:
                         row = box.row()
-                        row.prop(b_item, "type")
-                        row.prop(b_item, "behavior_type")
+                        row.prop(b_item, "method")
+
                     
             elif item.trait_type == 'call':
                 row = box.row()
@@ -4499,7 +4536,7 @@ blender_classes = [
     HVYM_MaterialSet,
     HVYM_MorphSet,
     HVYM_ActionDataItem,
-    HVYM_BehaviorDataItem,
+    HVYM_BehaviorSet,
     HVYM_UL_BehaviorList,
     HVYM_DataItem,
     HVYM_UL_DataList,
@@ -4624,8 +4661,6 @@ def register():
     bpy.types.Scene.hvym_menu_meta_data = bpy.props.CollectionProperty(type = HVYM_MenuDataItem)
     bpy.types.Scene.hvym_action_meta_data = bpy.props.CollectionProperty(type = HVYM_ActionDataItem)
     bpy.types.Scene.hvym_action_list_index = bpy.props.IntProperty(name = "Index for active hvym_action_meta_data", default = 0)
-    bpy.types.Collection.hvym_behavior_meta_data = bpy.props.CollectionProperty(type = HVYM_BehaviorDataItem)
-    bpy.types.Collection.hvym_behavior_list_index = bpy.props.IntProperty(name = "Index for active hvym_action_meta_data", default = 0)
     bpy.types.Scene.hvym_project_set = bpy.props.BoolProperty(name = "Flag for initializing project on file load", default = False)
     bpy.types.Collection.hvym_meta_data = bpy.props.CollectionProperty(type = HVYM_DataItem)
     bpy.types.Collection.hvym_menu_index = bpy.props.IntProperty(name = "Index for active hvym_meta_data menus", default = -1)
@@ -4660,8 +4695,6 @@ def unregister():
     del bpy.types.Scene.hvym_menu_meta_data
     del bpy.types.Scene.hvym_action_meta_data
     del bpy.types.Scene.hvym_action_list_index
-    del bpy.types.Collection.hvym_behavior_meta_data
-    del bpy.types.Collection.hvym_behavior_list_index
     del bpy.types.Scene.hvym_project_set
     del bpy.types.Collection.hvym_meta_data
     del bpy.types.Collection.hvym_menu_index
