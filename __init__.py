@@ -974,6 +974,19 @@ def property_group_to_dict(pg):
                         for a in pg[i].action_set:
                             a_set.append(a.string)
                     value = a_set
+                if(attr == 'behavior_set'):
+                    if value != None:
+                        b_set = []
+                        for b in pg[i].behavior_set:
+                            b_data = {
+                                'name': b.type, 
+                                'behavior': b.behavior_type,
+                                'use_method': b.use_method,
+                                'method': b.method
+                                }
+                            b_set.append(b_data)
+
+                        value = b_set
                 if(attr == 'mesh_set'):
                     if value != None:
                         m_set = []
@@ -1037,7 +1050,7 @@ def property_group_to_dict(pg):
 
 
 def property_group_to_json(pg):
-    #print(json.dumps(property_group_to_dict(pg)))
+    # print(json.dumps(property_group_to_dict(pg)))
     return json.dumps(property_group_to_dict(pg))
 
 def UpdateAccountInfo(context):
@@ -3802,16 +3815,16 @@ class HVYM_DataPanel(bpy.types.Panel):
                     row = box.row()
                     row.operator('hvym_meta_data.new_behavior_item', text='+', icon='SHADERFX')
                     row.operator('hvym_meta_data.delete_behavior_item', text='-', icon='CANCEL')
-
-                    b_item = item.behavior_set[item.behavior_set_index]
-                    row = box.row()
-                    row.prop(b_item, "type")
-                    row.prop(b_item, "behavior_type")
-                    row = box.row()
-                    row.prop(b_item, "use_method")
-                    if b_item.use_method:
+                    if item.behavior_set_index >= 0 and item.behavior_set:
+                        b_item = item.behavior_set[item.behavior_set_index]
                         row = box.row()
-                        row.prop(b_item, "method")
+                        row.prop(b_item, "type")
+                        row.prop(b_item, "behavior_type")
+                        row = box.row()
+                        row.prop(b_item, "use_method")
+                        if b_item.use_method:
+                            row = box.row()
+                            row.prop(b_item, "method")
 
                     
             elif item.trait_type == 'call':
