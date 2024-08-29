@@ -1101,6 +1101,8 @@ def updateNftData(context):
         property_group_to_json(hvym_action_meta_data)
     ]
 
+    #print(json.loads(call_cli(params)))
+
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
 
     params = [
@@ -1845,6 +1847,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            default="",
            update=onUpdate)
 
+    text_value: bpy.props.StringProperty(
+           name="Text",
+           description="Text Property",
+           default="",
+           update=onUpdate)
+
     call_param: bpy.props.EnumProperty(
             name='Call Parameter',
             description ="Set accepted parameter type for method call.",
@@ -2123,7 +2131,9 @@ class HVYM_UL_DataList(bpy.types.UIList):
         # We could write some code to decide which icon to use here...
         custom_icon = 'FUND'
 
-        if item.trait_type == 'mesh':
+        if item.trait_type == 'text':
+            custom_icon = 'SMALL_CAPS'
+        elif item.trait_type == 'mesh':
             custom_icon = 'MESH_ICOSPHERE'
         elif item.trait_type == 'call':
             custom_icon = 'SETTINGS'
@@ -2426,7 +2436,7 @@ class HVYM_LIST_NewBehaviorPropItem(bpy.types.Operator):
             item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
             print(item.trait_type)
 
-        if item != None and item.trait_type != 'property':
+        if item != None and (item.trait_type != 'property' and item.trait_type != 'text'):
             return
 
         b_item = item.behavior_set.add()
@@ -2451,7 +2461,7 @@ class HVYM_LIST_DeleteBehaviorItem(bpy.types.Operator):
 
     def execute(self, context):
         item = context.collection.hvym_meta_data[context.collection.hvym_list_index]
-        if item.trait_type != 'property':
+        if item.trait_type != 'property' and item.trait_type != 'text':
             return
 
         index = item.behavior_set_index
@@ -2476,6 +2486,22 @@ class HVYM_LIST_NewPropItem(bpy.types.Operator):
         item.int_default = 0
         item.int_min = 0
         item.int_max = 1
+        updateNftData(context)
+
+        return{'FINISHED'}
+
+
+class HVYM_LIST_NewTextPropItem(bpy.types.Operator):
+    """Add a new text property item to the list."""
+
+    bl_idname = "hvym_meta_data.new_text_property_item"
+    bl_label = "Add a new text property item"
+
+    def execute(self, context):
+        item = context.collection.hvym_meta_data.add()
+        item.trait_type = 'text'
+        item.type = '*'
+        item.values = 'Text Property'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -3019,7 +3045,7 @@ class HVYM_DebugMinter(bpy.types.Operator):
         file_name = os.path.basename(file_path).replace('.blend', '')
 
         if context.scene.hvym_nft_chain == 'ICP':
-            setup = choicePrompt(f'''Debug {context.scene.hvym_nft_chain} minter?
+            setup = choicePrompt(f'''Debug {context.scene.hvym_nft_chain} Minter?
                 ''')
             if setup.rstrip() == 'OK':
                 if context.scene.hvym_project_path is not None:
@@ -3110,7 +3136,7 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
 
 
         if context.scene.hvym_nft_chain == 'ICP':
-            setup = choicePrompt(f'Debug {context.scene.hvym_nft_chain} custom client?/n')
+            setup = choicePrompt(f'Debug {context.scene.hvym_nft_chain} Custom Client?')
             if setup.rstrip() == 'OK':
                 if context.scene.hvym_project_path is not None:
                     project_path = bpy.context.scene.hvym_daemon_path.rstrip()
@@ -3763,6 +3789,7 @@ class HVYM_DataPanel(bpy.types.Panel):
 
         row = box.row()
         row.operator('hvym_meta_data.new_property_item', text='+', icon='FUND')
+        row.operator('hvym_meta_data.new_text_property_item', text='+', icon='SMALL_CAPS')
         row.operator('hvym_meta_data.new_call_item', text='+', icon='SETTINGS')
         row.operator('hvym_meta_data.new_mesh_item', text='+', icon='MESH_ICOSPHERE')
         row.operator('hvym_meta_data.new_mesh_set', text='+', icon='FILE_3D')
@@ -3779,54 +3806,58 @@ class HVYM_DataPanel(bpy.types.Panel):
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
             row = box.row()
             row.prop(item, "type")
-            if item.trait_type != 'call':
+            if item.trait_type != 'call' and item.trait_type != 'text':
                 row.prop(item, GetPropWidgetType(item))
                 row.prop(item, "show")
                 row = box.row()
-            if item.trait_type == 'property':
-                row.prop(item, "prop_value_type")
-                row.prop(item, "prop_action_type")
-                row.prop(item, "prop_immutable")
+            if item.trait_type == 'property' or item.trait_type == 'text':
+                if item.trait_type == 'property':
+                    row.prop(item, "prop_value_type")
+                    row.prop(item, "prop_action_type")
+                    row.prop(item, "prop_immutable")
+                    row = box.row()
+                    if item.prop_value_type == 'Int':
+                        row.prop(item, "int_default")
+                        row.prop(item, "int_min")
+                        row.prop(item, "int_max")
+                        if item.prop_action_type != 'Static':
+                            row.prop(item, "int_amount")
+                    elif item.prop_value_type == 'Float':
+                        row.prop(item, "float_default")
+                        row.prop(item, "float_min")
+                        row.prop(item, "float_max")
+                        if item.prop_action_type != 'Static':
+                            row.prop(item, "float_amount")
+
+                elif item.trait_type == 'text':
+                    row = box.row()
+                    row.prop(item, "text_value")
+
+            row = box.row()
+            row.prop(item, "prop_use_behavior")
+            if item.prop_use_behavior:
+                box = col.box()
                 row = box.row()
-                if item.prop_value_type == 'Int':
-                    row.prop(item, "int_default")
-                    row.prop(item, "int_min")
-                    row.prop(item, "int_max")
-                    if item.prop_action_type != 'Static':
-                        row.prop(item, "int_amount")
-                elif item.prop_value_type == 'Float':
-                    row.prop(item, "float_default")
-                    row.prop(item, "float_min")
-                    row.prop(item, "float_max")
-                    if item.prop_action_type != 'Static':
-                        row.prop(item, "float_amount")
+                row.separator()
+                row.label(text="Behaviors:")
+                row = box.row()
+                row.template_list("HVYM_UL_BehaviorList", "", item,
+                        "behavior_set", item, "behavior_set_index")
 
                 row = box.row()
-                row.prop(item, "prop_use_behavior")
-                if item.prop_use_behavior:
-                    box = col.box()
+                row.operator('hvym_meta_data.new_behavior_item', text='+', icon='SHADERFX')
+                row.operator('hvym_meta_data.delete_behavior_item', text='-', icon='CANCEL')
+                if item.behavior_set_index >= 0 and item.behavior_set:
+                    b_item = item.behavior_set[item.behavior_set_index]
                     row = box.row()
-                    row.separator()
-                    row.label(text="Behaviors:")
+                    row.prop(b_item, "type")
+                    row.prop(b_item, "behavior_type")
                     row = box.row()
-                    row.template_list("HVYM_UL_BehaviorList", "", item,
-                          "behavior_set", item, "behavior_set_index")
-
-                    row = box.row()
-                    row.operator('hvym_meta_data.new_behavior_item', text='+', icon='SHADERFX')
-                    row.operator('hvym_meta_data.delete_behavior_item', text='-', icon='CANCEL')
-                    if item.behavior_set_index >= 0 and item.behavior_set:
-                        b_item = item.behavior_set[item.behavior_set_index]
+                    row.prop(b_item, "use_method")
+                    if b_item.use_method:
                         row = box.row()
-                        row.prop(b_item, "type")
-                        row.prop(b_item, "behavior_type")
-                        row = box.row()
-                        row.prop(b_item, "use_method")
-                        if b_item.use_method:
-                            row = box.row()
-                            row.prop(b_item, "method")
+                        row.prop(b_item, "method")
 
-                    
             elif item.trait_type == 'call':
                 row = box.row()
                 row.prop(item, "call_param")
@@ -4544,6 +4575,7 @@ blender_classes = [
     HVYM_LIST_NewBehaviorPropItem,
     HVYM_LIST_DeleteBehaviorItem,
     HVYM_LIST_NewPropItem,
+    HVYM_LIST_NewTextPropItem,
     HVYM_LIST_NewCallItem,
     HVYM_LIST_NewMeshItem,
     HVYM_LIST_NewMeshSet,
