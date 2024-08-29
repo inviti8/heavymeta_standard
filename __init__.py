@@ -1101,7 +1101,7 @@ def updateNftData(context):
         property_group_to_json(hvym_action_meta_data)
     ]
 
-    print(json.loads(call_cli(params)))
+    #print(json.loads(call_cli(params)))
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
 
@@ -1803,6 +1803,13 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
                 ('none', 'None', ""),),
             update=onUpdate)
 
+    prop_text_widget_type: bpy.props.EnumProperty(
+            name='Widget',
+            description ="Set text widget for property.",
+            items=(('edit_text', 'Edit Text', ""),
+                ('label', 'Label', ""),),
+            update=onUpdate)
+
     prop_multi_widget_type: bpy.props.EnumProperty(
             name='Multi-Widget',
             description ="Set ui multi widget for property.",
@@ -2069,6 +2076,12 @@ class HVYM_DataItem(bpy.types.PropertyGroup):
            name="Value Property Label",
            description="Re-map name for value properties in this collection.",
            default="Value Properties",
+           update=onUpdate)
+
+    text_prop_label: bpy.props.StringProperty(
+           name="Text Property Label",
+           description="Re-map name for text properties in this collection.",
+           default="Text Properties",
            update=onUpdate)
 
     call_prop_label: bpy.props.StringProperty(
@@ -2501,7 +2514,7 @@ class HVYM_LIST_NewTextPropItem(bpy.types.Operator):
         item = context.collection.hvym_meta_data.add()
         item.trait_type = 'text'
         item.type = '*'
-        item.values = 'Text Property'
+        item.values = 'Text Value Property'
         updateNftData(context)
 
         return{'FINISHED'}
@@ -3833,6 +3846,7 @@ class HVYM_DataPanel(bpy.types.Panel):
                 elif item.trait_type == 'text':
                     row = box.row()
                     row.prop(item, "text_value")
+                    row.prop(item, "prop_text_widget_type")
                     row.prop(item, "prop_immutable")
 
             row = box.row()
@@ -3922,6 +3936,8 @@ class HVYM_DataPanel(bpy.types.Panel):
             row.label(text="Property Names:")
             row = box.row()
             row.prop(item, "value_prop_label")
+            row = box.row()
+            row.prop(item, "text_prop_label")
             row = box.row()
             row.prop(item, "mesh_prop_label")
             row = box.row()
