@@ -1101,7 +1101,7 @@ def updateNftData(context):
         property_group_to_json(hvym_action_meta_data)
     ]
 
-    #print(json.loads(call_cli(params)))
+    print(json.loads(call_cli(params)))
 
     context.scene.hvym_collections_data.nftData[context.collection.hvym_id] = json.loads(call_cli(params))
 
@@ -3806,8 +3806,9 @@ class HVYM_DataPanel(bpy.types.Panel):
             item = ctx.hvym_meta_data[ctx.hvym_list_index]
             row = box.row()
             row.prop(item, "type")
-            if item.trait_type != 'call' and item.trait_type != 'text':
-                row.prop(item, GetPropWidgetType(item))
+            if item.trait_type != 'call':
+                if item.trait_type != 'text':
+                    row.prop(item, GetPropWidgetType(item))
                 row.prop(item, "show")
                 row = box.row()
             if item.trait_type == 'property' or item.trait_type == 'text':
@@ -3832,6 +3833,7 @@ class HVYM_DataPanel(bpy.types.Panel):
                 elif item.trait_type == 'text':
                     row = box.row()
                     row.prop(item, "text_value")
+                    row.prop(item, "prop_immutable")
 
             row = box.row()
             row.prop(item, "prop_use_behavior")
@@ -3901,8 +3903,7 @@ class HVYM_DataPanel(bpy.types.Panel):
                 row.operator('hvym_meta_data.delete_mat_set_material', text='-', icon='CANCEL')
                 row.operator('hvym_meta_data.new_mat_set_item', text='Slot', icon='ADD')
                 row.operator('hvym_meta_data.delete_mat_set_item', text='Slot', icon='REMOVE')
-            else:
-                row.prop(item, "values")
+
             box = col.box()
             row = box.row()
             row.separator()
