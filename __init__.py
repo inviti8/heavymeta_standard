@@ -1085,7 +1085,9 @@ def updateNftData(context):
         context.scene.hvym_minter_name,
         context.scene.hvym_minter_description,
         context.scene.hvym_minter_image,
-        context.scene.hvym_minter_version
+        context.scene.hvym_minter_version,
+        context.scene.hvym_enable_context_menu,
+        context.scene.hvym_menu_indicator_shown
     ]
 
     context.scene.hvym_collections_data.nftData['contract'] =json.loads(call_cli(params))
@@ -1276,6 +1278,8 @@ PROPS = [
         description ="Minted by creator only, or public.",
         update=onUpdate)),
     ('hvym_minter_name', bpy.props.StringProperty(name='Minter-Name', default='', description ="Name of minter.", update=onUpdate)),
+    ('hvym_enable_context_menu', bpy.props.BoolProperty(name="Enable Context Menus", description="Enable context menus to show or hide prorpium data.", default=True)),
+    ('hvym_menu_indicator_shown', bpy.props.BoolProperty(name="Menu Indicator Shown By Default", description="Determines whether or not proprium menu indicators are shown by default.", default=True)),
     ('hvym_minter_description', bpy.props.StringProperty(name='Minter-Description', default='', description ="Details about the NFT.", update=onUpdate)),
     ('hvym_minter_image', bpy.props.StringProperty(name='Minter-Logo', default='', description ="Data url for logo.")),
     ('hvym_account_name', bpy.props.StringProperty(name='Account-Name', default='', description ="Current active account.", update=onUpdate)),
@@ -3084,7 +3088,7 @@ class HVYM_DebugMinter(bpy.types.Operator):
                         urls = run_command(CLI+f' icp-deploy-assets {project_type}')
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[3]
                         wm.progress_end()
-                        prompt(f'Project deployed locally@:/n{context.scene.hvym_debug_url}/n')
+                        prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n')
 
 
         return {'FINISHED'}
@@ -3177,7 +3181,7 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
                         urls = run_command(CLI+f' icp-deploy-assets {project_type}')
                         wm.progress_end()
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
-                        prompt(f'Project deployed locally@:/n{context.scene.hvym_debug_url}/n')
+                        prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n')
 
         return {'FINISHED'}
 
@@ -3989,7 +3993,9 @@ class HVYM_ScenePanel(bpy.types.Panel):
         'hvym_daemon_path',
         'hvym_project_type',
         'hvym_debug_url',
-        'hvym_nft_chain']
+        'hvym_nft_chain',
+        'hvym_enable_context_menu',
+        'hvym_menu_indicator_shown']
         col = self.layout.column()
         box = col.row()
         row = box.row()
@@ -4039,6 +4045,9 @@ class HVYM_ScenePanel(bpy.types.Panel):
         row = box.row()
         row.prop(context.scene, 'hvym_project_name')
         row = box.row()
+        row.prop(context.scene, 'hvym_enable_context_menu')
+        row = box.row()
+        row.prop(context.scene, 'hvym_menu_indicator_shown')
         if context.scene.hvym_project_type=='custom':
             row = box.row()
             row.prop(context.scene, 'hvym_custom_backend_path')
@@ -4774,18 +4783,18 @@ class glTF2ExportUserExtension:
         from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
         self.Extension = Extension
 
-    # Gather export data
-    def gather_node_hook(self, gltf2_object, blender_object, export_settings):
-        if len(bpy.data.collections) == 0:
-            return
+    # # Gather export data
+    # def gather_node_hook(self, gltf2_object, blender_object, export_settings):
+    #     if len(bpy.data.collections) == 0:
+    #         return
 
-        gltf2_object.extensions[glTF_extension_name] = self.Extension(
-            name=glTF_extension_name,
-            extension={
-                "foo": 1.5
-            },
-            required=False
-        )
+    #     gltf2_object.extensions[glTF_extension_name] = self.Extension(
+    #         name=glTF_extension_name,
+    #         extension={
+    #             "foo": 1.5
+    #         },
+    #         required=False
+    #     )
 
 
     def gather_gltf_extensions_hook(self, gltf2_object, export_settings):
