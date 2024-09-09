@@ -1328,15 +1328,6 @@ MESH_PROPS = [
             ('selector', "Selector", "")),
         description ="Type of interaction.",
         update=onUpdate)),
-    ('hvym_interaction_event_type', bpy.props.EnumProperty(
-        name='Event Type',
-        items=(
-            ('none', "None", ""),
-            ('call', "Call", ""),
-            ('dispatch_event', "Dispatch Event", "")),
-        description ="Event used in interaction.",
-        update=onUpdate)),
-    ('hvym_interaction_event', bpy.props.StringProperty(name='Event', default='', description ="Name of event.", update=onUpdate)),
     ('hvym_interactable_has_return', bpy.props.BoolProperty(
            name="Has Return",
            description="If true, associated callback will have return value.",
@@ -1655,8 +1646,7 @@ class HVYM_ActionDataItem(bpy.types.PropertyGroup):
             items=(('none', 'None', ""),
                 ('click', 'Click', ""),
                 ('double_click', 'Double Click', ""),
-                ('mouse_wheel', 'Mouse Wheel', ""),
-                ('event_listener', 'Event Listener', ""),),
+                ('mouse_wheel', 'Mouse Wheel', ""),),
             update=onUpdate)
 
     mesh_interaction_type: bpy.props.EnumProperty(
@@ -1665,8 +1655,7 @@ class HVYM_ActionDataItem(bpy.types.PropertyGroup):
             items=(('none', 'None', ""),
                 ('click', 'Click', ""),
                 ('double_click', 'Double Click', ""),
-                ('mouse_over', 'Mouse Over', ""),
-                ('dispatch_event', 'Dispatch Event', ""),),
+                ('mouse_over', 'Mouse Over', ""),),
             update=onUpdate)
 
     sequence_type: bpy.props.EnumProperty(
@@ -3886,11 +3875,10 @@ class HVYM_DataPanel(bpy.types.Panel):
                     row.prop(b_item, "type")
                     row.prop(b_item, "behavior_type")
                     row = box.row()
-                    if b_item.behavior_type != "dispatch_event" and b_item.behavior_type != "event_listener":
-                        row.prop(b_item, "use_method")
-                        if b_item.use_method:
-                            row = box.row()
-                            row.prop(b_item, "method")
+                    row.prop(b_item, "use_method")
+                    if b_item.use_method:
+                        row = box.row()
+                        row.prop(b_item, "method")
 
             elif item.trait_type == 'call':
                 row = box.row()
@@ -4148,57 +4136,50 @@ class HVYM_MeshPanel(bpy.types.Panel):
             row = box.row()
             row.prop(ctx, 'hvym_mesh_interaction_type')
             row = box.row()
-            row.prop(ctx, 'hvym_interaction_event_type')
-            if ctx.hvym_interaction_event_type != 'none':
+            row.prop(ctx, 'hvym_interactable_has_return')
+            if ctx.hvym_mesh_interaction_type != 'none':
                 box = col.box()
                 row = box.row()
                 row.prop(ctx, 'hvym_mesh_interaction_name')
-                if ctx.hvym_interaction_event_type == 'call':
+                row = box.row()
+                row.label(text="", icon='SETTINGS')
+                row.prop(ctx, 'hvym_mesh_interaction_call')
+                row = box.row()
+                if ctx.hvym_mesh_interaction_type == 'slider':
+                    #row.prop(ctx, 'hvym_mesh_interaction_slider_param_type')
                     row = box.row()
-                    row.prop(ctx, 'hvym_interactable_has_return')
+                    box = col.box()
                     row = box.row()
-                    row.label(text="", icon='SETTINGS')
-                    row.prop(ctx, 'hvym_mesh_interaction_call')
-                    row = box.row()
-                    if ctx.hvym_mesh_interaction_type == 'slider':
-                        #row.prop(ctx, 'hvym_mesh_interaction_slider_param_type')
-                        row = box.row()
-                        box = col.box()
-                        row = box.row()
-                        if ctx.hvym_mesh_interaction_slider_param_type == 'INT':
-                            row.prop(ctx, 'hvym_mesh_interaction_int_default')
-                            row.prop(ctx, 'hvym_mesh_interaction_int_min')
-                            row.prop(ctx, 'hvym_mesh_interaction_int_max')
-                        else:
-                            row.prop(ctx, 'hvym_mesh_interaction_float_default')
-                            row.prop(ctx, 'hvym_mesh_interaction_float_min')
-                            row.prop(ctx, 'hvym_mesh_interaction_float_max')
-                    elif ctx.hvym_mesh_interaction_type == 'toggle':
-                        #row.prop(ctx, 'hvym_mesh_interaction_toggle_param_type')
-                        row = box.row()
-                        box = col.box()
-                        row = box.row()
-                        row.label(text="Default Toggle State")
-                        if ctx.hvym_mesh_interaction_toggle_param_type == 'BOOL':
-                            row.prop(ctx, 'hvym_mesh_interaction_toggle_state')
-                        else:
-                            row.prop(ctx, 'hvym_mesh_interaction_toggle_int')
-                    elif ctx.hvym_mesh_interaction_type == 'selector':
-                        row = box.row()
+                    if ctx.hvym_mesh_interaction_slider_param_type == 'INT':
+                        row.prop(ctx, 'hvym_mesh_interaction_int_default')
+                        row.prop(ctx, 'hvym_mesh_interaction_int_min')
+                        row.prop(ctx, 'hvym_mesh_interaction_int_max')
                     else:
-                        row.prop(ctx, 'hvym_mesh_interaction_param_type')
-                        if ctx.hvym_mesh_interaction_param_type != 'none':
-                            row = box.row()
-                            if ctx.hvym_mesh_interaction_param_type == 'STRING':
-                                row.prop(ctx, 'hvym_mesh_interaction_string_param')
-                            elif ctx.hvym_mesh_interaction_param_type == 'FLOAT':
-                                row.prop(ctx, 'hvym_mesh_interaction_float_param')
-                            elif ctx.hvym_mesh_interaction_param_type == 'INT':
-                                row.prop(ctx, 'hvym_mesh_interaction_int_param')
-
-                elif ctx.hvym_interaction_event_type == 'dispatch_event':
+                        row.prop(ctx, 'hvym_mesh_interaction_float_default')
+                        row.prop(ctx, 'hvym_mesh_interaction_float_min')
+                        row.prop(ctx, 'hvym_mesh_interaction_float_max')
+                elif ctx.hvym_mesh_interaction_type == 'toggle':
+                    #row.prop(ctx, 'hvym_mesh_interaction_toggle_param_type')
                     row = box.row()
-                    row.prop(ctx, 'hvym_interaction_event')
+                    box = col.box()
+                    row = box.row()
+                    row.label(text="Default Toggle State")
+                    if ctx.hvym_mesh_interaction_toggle_param_type == 'BOOL':
+                        row.prop(ctx, 'hvym_mesh_interaction_toggle_state')
+                    else:
+                        row.prop(ctx, 'hvym_mesh_interaction_toggle_int')
+                elif ctx.hvym_mesh_interaction_type == 'selector':
+                    row = box.row()
+                else:
+                    row.prop(ctx, 'hvym_mesh_interaction_param_type')
+                    if ctx.hvym_mesh_interaction_param_type != 'none':
+                        row = box.row()
+                        if ctx.hvym_mesh_interaction_param_type == 'STRING':
+                            row.prop(ctx, 'hvym_mesh_interaction_string_param')
+                        elif ctx.hvym_mesh_interaction_param_type == 'FLOAT':
+                            row.prop(ctx, 'hvym_mesh_interaction_float_param')
+                        elif ctx.hvym_mesh_interaction_param_type == 'INT':
+                            row.prop(ctx, 'hvym_mesh_interaction_int_param')
 
 
 
