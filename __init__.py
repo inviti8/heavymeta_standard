@@ -1325,7 +1325,8 @@ MESH_PROPS = [
             ('button', "Button", ""),
             ('toggle', "Toggle", ""),
             ('slider', "Slider", ""),
-            ('selector', "Selector", "")),
+            ('selector', "Selector", ""),
+            ('dispatch_event', "Dispatch Event", "")),
         description ="Type of interaction.",
         update=onUpdate)),
     ('hvym_interactable_has_return', bpy.props.BoolProperty(
@@ -1646,7 +1647,8 @@ class HVYM_ActionDataItem(bpy.types.PropertyGroup):
             items=(('none', 'None', ""),
                 ('click', 'Click', ""),
                 ('double_click', 'Double Click', ""),
-                ('mouse_wheel', 'Mouse Wheel', ""),),
+                ('mouse_wheel', 'Mouse Wheel', ""),
+                ('event_listener', 'Event Listener', ""),),
             update=onUpdate)
 
     mesh_interaction_type: bpy.props.EnumProperty(
