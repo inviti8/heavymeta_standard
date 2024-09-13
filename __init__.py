@@ -1329,6 +1329,13 @@ MESH_PROPS = [
             ('dispatch_event', "Dispatch Event", "")),
         description ="Type of interaction.",
         update=onUpdate)),
+    ('hvym_interactable_selector_dir', bpy.props.EnumProperty(
+        name='Selector-Direction',
+        items=(
+            ('y', "Y", ""),
+            ('x', "X", "")),
+        description ="Direction of the Selector.",
+        update=onUpdate)),
     ('hvym_interactable_has_return', bpy.props.BoolProperty(
            name="Has Return",
            description="If true, associated callback will have return value.",
@@ -4139,6 +4146,9 @@ class HVYM_MeshPanel(bpy.types.Panel):
             row.prop(ctx, 'hvym_mesh_interaction_type')
             row = box.row()
             row.prop(ctx, 'hvym_interactable_has_return')
+            if ctx.hvym_mesh_interaction_type == 'selector':
+                row = box.row()
+                row.prop(ctx, 'hvym_interactable_selector_dir')
             if ctx.hvym_mesh_interaction_type != 'none':
                 box = col.box()
                 row = box.row()
