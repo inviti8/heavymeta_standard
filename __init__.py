@@ -1250,8 +1250,11 @@ def minterTypes(self, context):
 def loadingMessage(msg):
     call_cli_threaded(f'custom-loading-msg "{msg}"')
 
-def prompt(msg):
-    run_command(CLI+f' custom-prompt "{msg}"')
+def prompt(msg, wide=False):
+    if wide:
+        run_command(CLI+f' custom-prompt "{msg}"')
+    else:
+        run_command(CLI+f' custom-prompt-wide "{msg}"')
 
 def choicePrompt(msg):
     return run_command(CLI+f' custom-choice-prompt "{msg}"')
@@ -3099,7 +3102,7 @@ class HVYM_DebugMinter(bpy.types.Operator):
                         urls = run_command(CLI+f' icp-deploy-assets {project_type}')
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[3]
                         wm.progress_end()
-                        prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n')
+                        prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n', True)
 
 
         return {'FINISHED'}
