@@ -677,7 +677,7 @@ def run_futures_cmds(cmds):
         return result
 
 def run_command(cmd):
-    process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+    process = Popen(cmd, stdout=PIPE, stderr=PIPE)
     output, error = process.communicate()
 
     if process.returncode != 0:   # Checking the return code
@@ -686,13 +686,12 @@ def run_command(cmd):
         print(output.decode('utf-8'))
         return output.decode('utf-8')
 
-def call_cli_threaded(command):
+def call_cli_threaded(commands):
     if os.path.isfile(CLI):
-        command = CLI + ' ' + command
-        print(command)
+        command = [CLI]+commands
+
         thread = threading.Thread(target=run_command, args=(command,))
         thread.start()
-
 
 def call_cli(call_arr):
     result = None
@@ -1054,9 +1053,10 @@ def property_group_to_json(pg):
     return json.dumps(property_group_to_dict(pg))
 
 def UpdateAccountInfo(context):
-    account = ast.literal_eval(run_command(CLI+f' icp-account-info'))
+    account = ast.literal_eval(run_command([CLI, f'icp-account-info']))
     context.scene.hvym_account_name = account['active_id']
     context.scene.hvym_address = account['principal']
+    prompt(f'Active Account set to: {context.scene.hvym_account_name}')
 
 def updateNftData(context):
     #Update all the props on any change
@@ -1248,16 +1248,13 @@ def minterTypes(self, context):
     return result
 
 def loadingMessage(msg):
-    call_cli_threaded(f'custom-loading-msg "{msg}"')
+    call_cli_threaded(['custom-loading-msg', f'{msg}'])
 
 def prompt(msg, wide=False):
-    if wide:
-        run_command(CLI+f' custom-prompt "{msg}"')
-    else:
-        run_command(CLI+f' custom-prompt-wide "{msg}"')
+    run_command([CLI, 'custom-prompt', f'{msg}'])
 
 def choicePrompt(msg):
-    return run_command(CLI+f' custom-choice-prompt "{msg}"')
+    return run_command([CLI, 'custom-choice-prompt', f'{msg}'])
 
 
 PROPS = [
@@ -3098,9 +3095,9 @@ class HVYM_DebugMinter(bpy.types.Operator):
                                 os.unlink(file_path)
 
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                        run_command(CLI+' icp-debug-model-minter '+file_name+'.glb')
+                        run_command([CLI, 'icp-debug-model-minter', file_name+'.glb'])
                         project_type = context.scene.hvym_project_type
-                        urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+                        urls = run_command([CLI, 'icp-deploy-assets', f'{project_type}'])
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[3]
                         wm.progress_end()
                         prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n', True)
@@ -3144,9 +3141,9 @@ class HVYM_DebugModel(bpy.types.Operator):
                                 os.unlink(file_path)
 
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                        run_command(CLI+' icp-debug-model '+file_name+'.glb')
+                        run_command([CLI, 'icp-debug-model', file_name+'.glb'])
                         project_type = context.scene.hvym_project_type
-                        urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+                        urls = run_command([CLI, 'icp-deploy-assets', f'{project_type}'])
                         wm.progress_end()
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
                         prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}/n')
@@ -3191,9 +3188,9 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
                         print(out_file)
 
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                        run_command(CLI+' icp-debug-custom-client '+file_name+'.glb '+backend_path)
+                        run_command([CLI, 'icp-debug-custom-client', file_name+'.glb', f'{backend_path}'])
                         project_type = context.scene.hvym_project_type
-                        urls = run_command(CLI+f' icp-deploy-assets {project_type}')
+                        urls = run_command([CLI, 'icp-deploy-assets', f'{project_type}'])
                         wm.progress_end()
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
                         prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n')
@@ -3257,11 +3254,8 @@ class HVYM_SetAccount(bpy.types.Operator):
         setup = choicePrompt(f'Change current account?')
         loading = None
         if setup.rstrip() == 'OK':
-            print("Set Account")
-            print(context.scene.hvym_project_name)
             if context.scene.hvym_nft_chain == 'ICP':
-                run_command(CLI+f' icp-set-account -q')
-                loadingMessage('Working...')
+                run_command([CLI, 'icp-set-account', '-q'])
                 UpdateAccountInfo(context)
 
         return {'FINISHED'}
@@ -3279,8 +3273,7 @@ class HVYM_NewAccount(bpy.types.Operator):
             print("Set Account")
             print(context.scene.hvym_project_name)
             if context.scene.hvym_nft_chain == 'ICP':
-                run_command(CLI+f' icp-new-account')
-                loadingMessage('Working...')
+                run_command([CLI, 'icp-new-account'])
                 UpdateAccountInfo(context)
 
         return {'FINISHED'}
@@ -4685,7 +4678,7 @@ def post_file_load(file_path):
         return
 
     if CLI_INSTALLED and ( bpy.context.scene.hvym_project_path != "NOT-SET!!!!" or bpy.context.scene.hvym_project_path != ICP_PATH):
-        call_cli_threaded('splash')
+        call_cli_threaded(['splash'])
         print(f"Heavymeta CLI current project is: {ICP_PATH}!!, being changed to: {bpy.context.scene.hvym_project_name}")
         bpy.ops.hvym_set.project_paths()
         UpdateAccountInfo(bpy.context)
