@@ -1305,6 +1305,7 @@ PROPS = [
     ('hvym_minter_version', bpy.props.IntProperty(name='Version', default=0, description ="Version of the NFT minter.", update=onUpdate)),
     ('hvym_export_name', bpy.props.StringProperty(name='Export-Name', default=FILE_NAME, description ="Gltf export path for debug & deploy.", update=onUpdate)),
     ('hvym_export_path', bpy.props.StringProperty(name='Export-Path', subtype='FILE_PATH', default='', description ="Gltf export path for debug & deploy.", update=onUpdate)),
+    ('hvym_canister_id', bpy.props.StringProperty(name='Canister ID', default='', description ="Canister that this will be deployed to.", update=onUpdate)),
 ]
 
 COL_PROPS = [
@@ -4009,7 +4010,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
         'hvym_debug_url',
         'hvym_nft_chain',
         'hvym_enable_context_menu',
-        'hvym_menu_indicator_shown']
+        'hvym_menu_indicator_shown',
+        'hvym_canister_id']
         col = self.layout.column()
         box = col.row()
         row = box.row()
@@ -4099,6 +4101,9 @@ class HVYM_ScenePanel(bpy.types.Panel):
         box = col.box()
         row = box.row()
         row.label(text="Project Export:")
+        if context.scene.hvym_nft_chain == 'ICP':
+            row = box.row()
+            row.prop(context.scene, 'hvym_canister_id')
         row = box.row()
         row.prop(context.scene, 'hvym_export_name')
         row = box.row()
