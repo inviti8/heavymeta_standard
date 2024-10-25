@@ -3062,26 +3062,24 @@ class HVYM_DataReload(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class HVYM_DebugMinter(bpy.types.Operator):
-    bl_idname = "hvym_debug.minter"
-    bl_label = "Launch Minter Debug UI"
+class HVYM_UpdateMinter(bpy.types.Operator):
+    bl_idname = "hvym_update.minter"
+    bl_label = "Update and Launch Minter UI"
     bl_description ="Launch minter UI debug."
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        print("Debug Minter")
+        print("Update Minter")
         file_path = bpy.data.filepath
         file_name = os.path.basename(file_path).replace('.blend', '')
 
         if context.scene.hvym_nft_chain == 'ICP':
-            setup = choicePrompt(f'''Debug {context.scene.hvym_nft_chain} Minter?
-                ''')
+            setup = choicePrompt(f'Debug {context.scene.hvym_nft_chain} Minter?')
             if setup.rstrip() == 'OK':
                 if context.scene.hvym_project_path is not None:
                     project_path = bpy.context.scene.hvym_daemon_path.rstrip()
                     #export gltf to project folder
                     if os.path.exists(project_path):
-                        print('should export!')
                         wm = bpy.context.window_manager
                         wm.progress_begin(0, 88)
                         wm.progress_update(88)
@@ -3102,18 +3100,17 @@ class HVYM_DebugMinter(bpy.types.Operator):
                         wm.progress_end()
                         prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n', True)
 
-
         return {'FINISHED'}
 
 
-class HVYM_DebugModel(bpy.types.Operator):
-    bl_idname = "hvym_debug.model"
-    bl_label = "Launch Model Debug UI"
+class HVYM_UpdateModel(bpy.types.Operator):
+    bl_idname = "hvym_update.model"
+    bl_label = "Launch Model UI"
     bl_description ="Launch model UI debug."
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-        print("Debug Model")
+        print("Update Model")
         file_path = bpy.data.filepath
         file_name = os.path.basename(file_path).replace('.blend', '')
         msg = f'''
@@ -3151,14 +3148,14 @@ class HVYM_DebugModel(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class HVYM_DebugCustomClient(bpy.types.Operator):
-    bl_idname = "hvym_debug.custom_client"
+class HVYM_UpdateCustomClient(bpy.types.Operator):
+    bl_idname = "hvym_update.custom_client"
     bl_label = "Launch Custom Client UI"
-    bl_description ="Launch custom client UI debug."
+    bl_description ="Update and launch custom client."
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-        print("Debug Custom Client")
+        print("Update Custom Client")
         file_path = bpy.data.filepath
         #file_name = bpy.context.scene.hvym_export_name
         file_name = os.path.basename(file_path).replace('.blend', '')
@@ -3185,10 +3182,8 @@ class HVYM_DebugCustomClient(bpy.types.Operator):
                             if os.path.isfile(file_path) and '.glb' in file_path:
                                 os.unlink(file_path)
 
-                        print(out_file)
-
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                        run_command([CLI, 'icp-debug-custom-client', file_name+'.glb', f'{backend_path}'])
+                        run_command([CLI, 'icp-update-custom-client', file_name+'.glb', f'{backend_path}'])
                         project_type = context.scene.hvym_project_type
                         urls = run_command([CLI, 'icp-deploy-assets', f'{project_type}'])
                         wm.progress_end()
@@ -4081,11 +4076,11 @@ class HVYM_ScenePanel(bpy.types.Panel):
             row.operator('hvym_toggle_asset.daemon', text="Daemon On", icon="COLORSET_03_VEC")
             row = box.row()
             if context.scene.hvym_project_type == 'minter':
-                row.operator('hvym_debug.minter', text="Debug Minter", icon="CONSOLE")
+                row.operator('hvym_update.minter', text="Debug Minter", icon="CONSOLE")
             elif context.scene.hvym_project_type == 'model':
-                row.operator('hvym_debug.model', text="Debug Model", icon="CONSOLE")
+                row.operator('hvym_update.model', text="Debug Model", icon="CONSOLE")
             elif context.scene.hvym_project_type == 'custom':
-                row.operator('hvym_debug.custom_client', text="Debug Custom Client", icon="CONSOLE")
+                row.operator('hvym_update.custom_client', text="Debug Custom Client", icon="CONSOLE")
         row = box.row()
         if context.scene.hvym_debug_url != '':
             row.prop(context.scene, 'hvym_debug_url')
@@ -4637,9 +4632,9 @@ blender_classes = [
     HVYM_LIST_DirectionUp,
     HVYM_LIST_DirectionDown,
     HVYM_LIST_DefaultValues,
-    HVYM_DebugMinter,
-    HVYM_DebugModel,
-    HVYM_DebugCustomClient,
+    HVYM_UpdateMinter,
+    HVYM_UpdateModel,
+    HVYM_UpdateCustomClient,
     HVYM_SetProjectPaths,
     HVYM_SetProject,
     HVYM_NewAccount,
