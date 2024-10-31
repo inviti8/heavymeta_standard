@@ -32,7 +32,7 @@ SOFTWARE.
 bl_info = {
     # required
     'name': 'Heavymeta Standard NFT Data',
-    'blender': (3, 2, 0),
+    'blender': (4, 0, 2),
     'category': 'Collections',
     # optional
     'version': (0, 0, 0),
