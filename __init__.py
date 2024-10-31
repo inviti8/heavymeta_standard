@@ -1303,6 +1303,7 @@ PROPS = [
     ('hvym_export_name', bpy.props.StringProperty(name='Export-Name', default=FILE_NAME, description ="Gltf export path for debug & deploy.", update=onUpdate)),
     ('hvym_export_path', bpy.props.StringProperty(name='Export-Path', subtype='FILE_PATH', default='', description ="Gltf export path for debug & deploy.", update=onUpdate)),
     ('hvym_canister_id', bpy.props.StringProperty(name='Canister ID', default='', description ="Canister that this will be deployed to.", update=onUpdate)),
+    ('hvym_deployment', bpy.props.StringProperty(name='Deployment', default='Debug')),
 ]
 
 COL_PROPS = [
@@ -3074,7 +3075,7 @@ class HVYM_UpdateMinter(bpy.types.Operator):
         file_name = os.path.basename(file_path).replace('.blend', '')
 
         if context.scene.hvym_nft_chain == 'ICP':
-            setup = choicePrompt(f'Debug {context.scene.hvym_nft_chain} Minter?')
+            setup = choicePrompt(f'{context.scene.hvym_deployment} {context.scene.hvym_nft_chain} Minter?')
             if setup.rstrip() == 'OK':
                 if context.scene.hvym_project_path is not None:
                     project_path = bpy.context.scene.hvym_daemon_path.rstrip()
@@ -3095,10 +3096,14 @@ class HVYM_UpdateMinter(bpy.types.Operator):
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
                         run_command([CLI, 'icp-debug-model-minter', file_name+'.glb'])
                         project_type = context.scene.hvym_project_type
-                        urls = run_command([CLI, 'icp-deploy-assets', f'{project_type}'])
+                        cmds = [CLI, 'icp-deploy-assets', f'{project_type}']
+                        if context.scene.hvym_deployment == 'Deploy':
+                            cmds = [CLI, 'icp-deploy-assets', '--ic', f'{project_type}']
+                        urls = run_command(cmds)
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[3]
                         wm.progress_end()
                         prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n', True)
+                        context.scene.hvym_deployment = 'Debug'
 
         return {'FINISHED'}
 
@@ -3114,7 +3119,7 @@ class HVYM_UpdateModel(bpy.types.Operator):
         file_path = bpy.data.filepath
         file_name = os.path.basename(file_path).replace('.blend', '')
         msg = f'''
-        Debug your model for
+        {context.scene.hvym_deployment} your model for
         deployment on {context.scene.hvym_nft_chain}?
             '''
 
@@ -3140,10 +3145,14 @@ class HVYM_UpdateModel(bpy.types.Operator):
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
                         run_command([CLI, 'icp-debug-model', file_name+'.glb'])
                         project_type = context.scene.hvym_project_type
-                        urls = run_command([CLI, 'icp-deploy-assets', f'{project_type}'])
+                        cmds = [CLI, 'icp-deploy-assets', f'{project_type}']
+                        if context.scene.hvym_deployment == 'Deploy':
+                            cmds = [CLI, 'icp-deploy-assets', '--ic', f'{project_type}']
+                        urls = run_command(cmds)
                         wm.progress_end()
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
                         prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}/n')
+                        context.scene.hvym_deployment = 'Debug'
 
         return {'FINISHED'}
 
@@ -3157,12 +3166,10 @@ class HVYM_UpdateCustomClient(bpy.types.Operator):
     def execute(self, context):
         print("Update Custom Client")
         file_path = bpy.data.filepath
-        #file_name = bpy.context.scene.hvym_export_name
         file_name = os.path.basename(file_path).replace('.blend', '')
 
-
         if context.scene.hvym_nft_chain == 'ICP':
-            setup = choicePrompt(f'Debug {context.scene.hvym_nft_chain} Custom Client?')
+            setup = choicePrompt(f'{context.scene.hvym_deployment} {context.scene.hvym_nft_chain} Custom Client?')
             if setup.rstrip() == 'OK':
                 if context.scene.hvym_project_path is not None:
                     project_path = bpy.context.scene.hvym_daemon_path.rstrip()
@@ -3185,10 +3192,14 @@ class HVYM_UpdateCustomClient(bpy.types.Operator):
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
                         run_command([CLI, 'icp-update-custom-client', file_name+'.glb', f'{backend_path}'])
                         project_type = context.scene.hvym_project_type
-                        urls = run_command([CLI, 'icp-deploy-assets', f'{project_type}'])
+                        cmds = [CLI, 'icp-deploy-assets', f'{project_type}']
+                        if context.scene.hvym_deployment == 'Deploy':
+                            cmds = [CLI, 'icp-deploy-assets', '--ic', f'{project_type}']
+                        urls = run_command(cmds)
                         wm.progress_end()
                         context.scene.hvym_debug_url = ast.literal_eval(urls)[2]
                         prompt(f'Project deployed locally@:\n{context.scene.hvym_debug_url}\n')
+                        context.scene.hvym_deployment = 'Debug'
 
         return {'FINISHED'}
 
@@ -3585,7 +3596,6 @@ class HVYM_ExportHelper(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         filepath = self.filepath
         bpy.context.scene.hvym_collections_data.enabled = True
-        #bpy.ops.export_scene.gltf(filepath=filepath)
         bpy.ops.export_scene.gltf(filepath=filepath, check_existing=self.check_existing, export_format=self.export_format, export_copyright=self.export_copyright, export_texcoords=self.export_texcoords, export_normals=self.export_normals, export_tangents=self.export_tangents, export_colors=self.export_colors, use_mesh_edges=self.use_mesh_edges, use_mesh_vertices=self.use_mesh_vertices, export_cameras=self.export_cameras, use_selection=self.use_selection, use_visible=self.use_visible, use_renderable=self.use_renderable, use_active_collection=self.use_active_collection, use_active_scene=self.use_active_scene, export_yup=self.export_yup, export_frame_range=self.export_frame_range, export_frame_step=self.export_frame_step, export_force_sampling=self.export_force_sampling, export_nla_strips=self.export_nla_strips, export_def_bones=self.export_def_bones, export_all_influences=self.export_all_influences, export_morph_normal=self.export_morph_normal, export_morph_tangent=self.export_morph_tangent, export_lights=self.export_lights)
         print("Exported glTF to: ", filepath)
         return {'FINISHED'}
@@ -3621,15 +3631,31 @@ class HVYM_DeployConfirmMinterDeployDialog(bpy.types.Operator):
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event)
 
-class HVYM_DeployNFT(bpy.types.Operator):
-    bl_idname = "hvym_deploy.nft"
-    bl_label = "Launch Deploy Minter UI"
-    bl_description ="Deploy NFT minter."
+
+class HVYM_DeployProject(bpy.types.Operator):
+    bl_idname = "hvym_deploy.project"
+    bl_label = "Deploy this project"
+    bl_description ="Deploys this project on chain."
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         print("Deploy Minter")
-        bpy.ops.hvym_deploy.gltf('INVOKE_DEFAULT')
+        print(context.scene.hvym_project_type)
+        project_name = context.scene.hvym_project_name
+        project_type = context.scene.hvym_project_type
+        canister_id = context.scene.hvym_canister_id
+
+        if context.scene.hvym_daemon_running:
+            context.scene.hvym_deployment = 'Deploy'
+            run_command([CLI, 'icp-assign-canister-id', project_type, canister_id])
+            if context.scene.hvym_project_type == 'model':
+                bpy.ops.hvym_update.model()
+            elif context.scene.hvym_project_type == 'minter':
+                bpy.ops.hvym_update.minter()
+            elif context.scene.hvym_project_type == 'custom':
+                bpy.ops.hvym_update.custom_client()
+        else:
+            prompt('Daemon must be running in order to deploy.')
         return {'FINISHED'}
 
 
@@ -3645,7 +3671,7 @@ class HVYM_DeployConfirmNFTDeploytDialog(bpy.types.Operator):
 
     def execute(self, context):
         self.report({'INFO'}, "YES")
-        bpy.ops.hvym_deploy.nft()
+        bpy.ops.hvym_deploy.project()
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -3999,7 +4025,8 @@ class HVYM_ScenePanel(bpy.types.Panel):
         'hvym_nft_chain',
         'hvym_enable_context_menu',
         'hvym_menu_indicator_shown',
-        'hvym_canister_id']
+        'hvym_canister_id',
+        'hvym_deployment']
         col = self.layout.column()
         box = col.row()
         row = box.row()
@@ -4102,9 +4129,9 @@ class HVYM_ScenePanel(bpy.types.Panel):
             row.separator()
             row.label(text="Deploy:")
             row = box.row()
-            row.operator('hvym_deploy.confirm_minter_deploy_dialog', text="Deploy", icon="URL")
-        row = box.row()
-        row.operator('hvym_export.project', text="Export Project", icon="EXPORT")
+            row.operator('hvym_deploy.project', text="Deploy", icon="URL")
+        # row = box.row()
+        # row.operator('hvym_export.project', text="Export Project", icon="EXPORT")
             # row = box.row()
             # row.operator('hvym_deploy.confirm_nft_deploy_dialog', text="Deploy NFT", icon="URL")
         
@@ -4647,7 +4674,7 @@ blender_classes = [
     HVYM_ExportHelper,
     HVYM_DeployMinter,
     HVYM_DeployConfirmMinterDeployDialog,
-    HVYM_DeployNFT,
+    HVYM_DeployProject,
     HVYM_DeployConfirmNFTDeploytDialog,
     HVYM_Menu_Transform_Panel,
     HVYM_NLA_DataPanel,
