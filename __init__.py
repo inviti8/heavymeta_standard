@@ -1328,6 +1328,8 @@ MESH_PROPS = [
             ('toggle', "Toggle", ""),
             ('slider', "Slider", ""),
             ('selector', "Selector", ""),
+            ('load_text', "Load Text", ""),
+            ('input_text', "Input Text", ""),
             ('dispatch_event', "Dispatch Event", "")),
         description ="Type of interaction.",
         update=onUpdate)),
@@ -3645,7 +3647,7 @@ class HVYM_DeployProject(bpy.types.Operator):
         project_type = context.scene.hvym_project_type
         canister_id = context.scene.hvym_canister_id
 
-        if context.scene.hvym_daemon_running:
+        if context.scene.hvym_daemon_running and len(canister_id)>0:
             context.scene.hvym_deployment = 'Deploy'
             run_command([CLI, 'icp-assign-canister-id', project_type, canister_id])
             if context.scene.hvym_project_type == 'model':
