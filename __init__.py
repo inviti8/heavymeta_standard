@@ -1340,6 +1340,14 @@ MESH_PROPS = [
             ('x', "X", "")),
         description ="Direction of the Selector.",
         update=onUpdate)),
+    ('hvym_interactable_behavior', bpy.props.EnumProperty(
+        name='Behavior',
+        items=(
+            ('NONE', "None", ""),
+            ('on_load', "On Load", ""),
+            ('on_change', "On Change", "")),
+        description ="Behavior of this interactable text.",
+        update=onUpdate)),
     ('hvym_interactable_has_return', bpy.props.BoolProperty(
            name="Has Return",
            description="If true, associated callback will have return value.",
@@ -1347,6 +1355,9 @@ MESH_PROPS = [
            update=onUpdate)),
     ('hvym_mesh_interaction_name', bpy.props.StringProperty(name='Name', default='', description ="Name of interaction.", update=onUpdate)),
     ('hvym_mesh_interaction_call', bpy.props.StringProperty(name='Call', default='', description ="Name of call.", update=onUpdate)),
+    ('hvym_mesh_interaction_default_text', bpy.props.StringProperty(name='Default Text', default='SET TEXT', description ="Default text value for interactable edit text.", update=onUpdate)),
+    ('hvym_mesh_interaction_text_scale', bpy.props.FloatProperty(name='Text Scale', default=1, description ="Amount to scale Interactable text.", update=onUpdate)),
+    ('hvym_mesh_interaction_text_wrap', bpy.props.BoolProperty(name="Text Wrap", description="If True text wraps in box.", default=False, update=onUpdate)),
     ('hvym_mesh_interaction_param_type',bpy.props.EnumProperty(
             name='Call Parameter',
             description ="Set accepted parameter type for method call.",
@@ -1377,7 +1388,7 @@ MESH_PROPS = [
     ('hvym_mesh_interaction_int_min', bpy.props.IntProperty(name="Min", description="Add minimum value.", default=0, update=onUpdate)),
     ('hvym_mesh_interaction_int_max', bpy.props.IntProperty(name="Max", description="Add maximum value.", default=0, update=onUpdate)),
     ('hvym_mesh_interaction_toggle_state', bpy.props.BoolProperty(name="On", description="Default state of Toggle.", default=False, update=onUpdate)),
-    ('hvym_mesh_interaction_toggle_int', bpy.props.IntProperty(name="On", description="Add default value.", default=0, update=onUpdate))
+    ('hvym_mesh_interaction_toggle_int', bpy.props.IntProperty(name="On", description="Add default value.", default=0, update=onUpdate),)
 ]
 
 
@@ -4207,7 +4218,7 @@ class HVYM_MeshPanel(bpy.types.Panel):
                         row.prop(ctx, 'hvym_mesh_interaction_toggle_int')
                 elif ctx.hvym_mesh_interaction_type == 'selector':
                     row = box.row()
-                else:
+                elif (ctx.hvym_mesh_interaction_type == 'input_text' or ctx.hvym_mesh_interaction_type == 'load_text') ==False:
                     row.prop(ctx, 'hvym_mesh_interaction_param_type')
                     if ctx.hvym_mesh_interaction_param_type != 'none':
                         row = box.row()
@@ -4217,6 +4228,15 @@ class HVYM_MeshPanel(bpy.types.Panel):
                             row.prop(ctx, 'hvym_mesh_interaction_float_param')
                         elif ctx.hvym_mesh_interaction_param_type == 'INT':
                             row.prop(ctx, 'hvym_mesh_interaction_int_param')
+                if ctx.hvym_mesh_interaction_type == 'input_text' or ctx.hvym_mesh_interaction_type == 'load_text':
+                    row = box.row()
+                    row.prop(ctx, 'hvym_mesh_interaction_default_text')
+                    row = box.row()
+                    row.prop(ctx, 'hvym_mesh_interaction_text_scale')
+                    row.prop(ctx, 'hvym_mesh_interaction_text_wrap')
+                    box = col.box()
+                    row = box.row()
+                    row.prop(ctx, 'hvym_interactable_behavior')
 
 
 
