@@ -1115,6 +1115,7 @@ def updateNftData(context):
     context.scene.hvym_collections_data.nftData['interactables'] = json.loads(call_cli(params))
     # print(json.loads(call_cli(params)))
     # print(property_group_to_json(bpy.context.scene.objects))
+    print({'name':context.scene.hvym_project_name, 'type':context.scene.hvym_project_type})
 
     context.scene.hvym_collections_data.nftData['project'] = {'name':context.scene.hvym_project_name, 'type':context.scene.hvym_project_type}
 
@@ -3107,7 +3108,7 @@ class HVYM_UpdateMinter(bpy.types.Operator):
                                 os.unlink(file_path)
 
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                        run_command([CLI, 'icp-debug-model-minter', file_name+'.glb'])
+                        run_command([CLI, 'icp-update-model-minter', file_name+'.glb'])
                         project_type = context.scene.hvym_project_type
                         cmds = [CLI, 'icp-deploy-assets', f'{project_type}']
                         if context.scene.hvym_deployment == 'Deploy':
@@ -3156,7 +3157,7 @@ class HVYM_UpdateModel(bpy.types.Operator):
                                 os.unlink(file_path)
 
                         bpy.ops.export_scene.gltf(filepath=out_file,  check_existing=False, export_format='GLB')
-                        run_command([CLI, 'icp-debug-model', file_name+'.glb'])
+                        run_command([CLI, 'icp-update-model', file_name+'.glb'])
                         project_type = context.scene.hvym_project_type
                         cmds = [CLI, 'icp-deploy-assets', f'{project_type}']
                         if context.scene.hvym_deployment == 'Deploy':
