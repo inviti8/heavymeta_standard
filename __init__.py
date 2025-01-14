@@ -1115,7 +1115,6 @@ def updateNftData(context):
     context.scene.hvym_collections_data.nftData['interactables'] = json.loads(call_cli(params))
     # print(json.loads(call_cli(params)))
     # print(property_group_to_json(bpy.context.scene.objects))
-    print({'name':context.scene.hvym_project_name, 'type':context.scene.hvym_project_type})
 
     context.scene.hvym_collections_data.nftData['project'] = {'name':context.scene.hvym_project_name, 'type':context.scene.hvym_project_type}
 
